@@ -82,8 +82,9 @@ We are open to contributions and this project is actively being worked on. A cou
 5. Adding more agent examples from the labs into the sample platform
 
 ## Authors and acknowledgment
-Tanner McRae
-Randy DeFauw
+* Tanner McRae
+* Randy DeFauw
+* James Levine 
 
 ## License
 
