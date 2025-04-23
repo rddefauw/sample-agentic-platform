@@ -74,20 +74,16 @@ There are a number of warnings suppressed in the code base. Review these prior t
 See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
 
 ## Contributing
-We are open to contributions and this project is actively being worked on. A couple things on your roadmap include:
+We are open to contributions and this project is actively being worked on. A couple things on our roadmap include:
 1. Making deployment easier through a bootstrap terraform module
 2. Cleaning up deployments with a more structured approach to GitOps
 3. Adding additional labs on more advanced agent topics. 
 4. Building a test harness & eval suite that runs against the code base
 5. Adding more agent examples from the labs into the sample platform
-6. 
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
 
 ## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+Tanner McRae
+Randy DeFauw
 
 ## License
 
