@@ -1,0 +1,4 @@
+clusterName: "your-eks-cluster"
+region: "us-west-2"
+irsaRoleArn: "arn:aws:iam::123456789012:role/adot-collector-role"
+namespace: "observability"

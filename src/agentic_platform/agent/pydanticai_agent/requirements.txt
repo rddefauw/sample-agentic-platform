@@ -1,0 +1,7 @@
+pydantic-ai-slim[bedrock]
+fastapi
+uvicorn
+boto3
+pyjwt
+cryptography
+requests

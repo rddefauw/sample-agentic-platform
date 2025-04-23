@@ -1,0 +1,70 @@
+# nosemgrep
+
+# This docker-compose file is for local development purposes only
+# It should be deployed in any way shape or form into your account.
+version: '3.8'
+
+services:
+  db:  # Service name
+    # If you don't use this image, you have to create the docker build yourself which is not fun..
+    image: pgvector/pgvector:pg16 
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: dev   # Password for the PostgreSQL user
+      POSTGRES_USER: dev  # Username for PostgreSQL
+      POSTGRES_DB: devdb  # Database name to create
+    ports:
+      - "5432:5432"  # Map host port to container port
+    volumes:
+      - postgres_data:/var/lib/postgresql/data  # Persist database data
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/run/postgresql
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --save 60 1 --loglevel warning --requirepass redis
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  dynamodb-local:
+    image: amazon/dynamodb-local
+    container_name: dynamodb-local
+    ports:
+      - "8351:8000"  # Map 8351 externally to DynamoDB's 8000 internally
+    command: "-jar DynamoDBLocal.jar -sharedDb -dbPath /data"
+    working_dir: /home/dynamodblocal
+    volumes:
+      - dynamodb_data:/data  # Mount the volume
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/shell/ || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:
+  dynamodb_data:  # Add the volume definition

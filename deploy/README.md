@@ -1,0 +1,2 @@
+# Deployment 
+This directory contains a set of deployment scripts that are useful for deploying locally or within a CI/CD pipeline. In an effort to make this deployment infrastructure agnostic, we've opted to provide these scripts and let the implementor use them in their preferred pipeline
