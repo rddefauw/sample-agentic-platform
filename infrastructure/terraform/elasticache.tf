@@ -50,7 +50,7 @@ resource "random_password" "redis_auth_token" {
 resource "aws_secretsmanager_secret" "redis_auth" {
   # checkov:skip=CKV2_AWS_57: As a sample, its a bit heavy handed to rotate the secret. This is called out in the readme. 
   # checkov:skip=CKV_AWS_149: KMS key is conditionally used based on var.enable_kms_encryption
-  name          = "${local.name_prefix}redis-auth"
+  name          = "${local.name_prefix}redis-auth-${local.suffix}"
   description   = "Auth token for Redis rate limiting cluster"
   kms_key_id    = var.enable_kms_encryption ? aws_kms_key.main[0].arn : null
   

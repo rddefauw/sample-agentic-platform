@@ -23,7 +23,7 @@ resource "aws_flow_log" "vpc_flow_log" {
 // CloudWatch Log Group for Flow Logs
 resource "aws_cloudwatch_log_group" "vpc_flow_log_group" {
   // checkov:skip=CKV_AWS_158: KMS encryption is conditionally enabled based on var.enable_kms_encryption
-  name              = "/aws/vpc/flow-logs/${local.name_prefix}vpc"
+  name              = "/aws/vpc/flow-logs/${local.name_prefix}vpc-${local.suffix}"
   retention_in_days = 365
   kms_key_id        = var.enable_kms_encryption ? aws_kms_key.main[0].arn : null
 

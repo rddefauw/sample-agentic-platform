@@ -63,6 +63,11 @@ variable "postgres_iam_username" {
   default     = "rdsuser"  
 }
 
+variable "postgres_deletion_protection" {
+  description = "Enable deletion protection for Postgres"
+  type        = bool
+  default     = true
+}
 
 ########################################################
 # Cognito Variables

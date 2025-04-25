@@ -16,14 +16,14 @@ resource "aws_rds_cluster" "postgres" {
   preferred_backup_window = "03:00-04:00"
   preferred_maintenance_window = "sat:05:00-sat:06:00"
   skip_final_snapshot     = false
-  final_snapshot_identifier = "${local.name_prefix}postgres-final-snapshot"
+  final_snapshot_identifier = "${local.name_prefix}postgres-final-snapshot-${local.suffix}"
   
   vpc_security_group_ids = [aws_security_group.postgres.id]
   db_subnet_group_name   = aws_db_subnet_group.postgres.name
 
   enabled_cloudwatch_logs_exports = ["postgresql"]
   
-  deletion_protection = true
+  deletion_protection = var.postgres_deletion_protection
   copy_tags_to_snapshot = true
   
   db_cluster_parameter_group_name = aws_rds_cluster_parameter_group.postgres.name
@@ -139,17 +139,6 @@ resource "aws_security_group_rule" "postgres_ingress_bastion" {
   source_security_group_id = aws_security_group.bastion_sg.id
   description              = "Allow PostgreSQL traffic from code server instance"
 }
-
-# # Add ingress rule to allow traffic from management instance to PostgreSQL
-# resource "aws_security_group_rule" "postgres_ingress_management" {
-#   type                     = "ingress"
-#   from_port                = 5432
-#   to_port                  = 5432
-#   protocol                 = "tcp"
-#   security_group_id        = aws_security_group.postgres.id
-#   source_security_group_id = aws_security_group.management_sg.id
-#   description              = "Allow PostgreSQL traffic from management instance for SSM port forwarding"
-# }
 
 # IAM role for RDS monitoring
 resource "aws_iam_role" "rds_monitoring" {

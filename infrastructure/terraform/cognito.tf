@@ -239,7 +239,7 @@ resource "aws_cognito_user_group" "platform_user" {
 
 # M2M client for service-to-service communication
 resource "aws_cognito_user_pool_client" "m2m_client" {
-  name                           = "${local.name_prefix}m2m-client"
+  name                           = "${local.name_prefix}m2m-client-${local.suffix}"
   user_pool_id                   = aws_cognito_user_pool.main.id
   generate_secret                = true # Required for client credentials flow
   refresh_token_validity         = 30
@@ -270,7 +270,7 @@ resource "aws_cognito_user_pool_client" "m2m_client" {
 resource "aws_secretsmanager_secret" "m2m_credentials" {
   # checkov:skip=CKV2_AWS_57: As a sample, its a bit heavy handed to rotate the secret. This is called out in the readme. 
   # checkov:skip=CKV_AWS_149: KMS key is conditionally used based on var.enable_kms_encryption
-  name        = "${local.name_prefix}m2m-credentials"
+  name        = "${local.name_prefix}m2m-credentials-${local.suffix}"
   description = "Machine-to-machine client credentials for service auth"
   kms_key_id  = var.enable_kms_encryption ? aws_kms_key.main[0].arn : null
   

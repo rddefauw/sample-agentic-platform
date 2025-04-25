@@ -1,5 +1,5 @@
 resource "random_string" "suffix" {
-  length  = 6
+  length  = 3
   special = false
   upper   = false
 }
@@ -7,12 +7,14 @@ resource "random_string" "suffix" {
 locals {
   # Common naming pattern for all resources
   name_prefix = var.stack_name != "" ? "${var.stack_name}-" : ""
+
+  suffix = random_string.suffix.result
   
   # Common tags for all resources
   common_tags = {
     Environment = var.environment
     ManagedBy   = "Terraform"
-    Suffix      = random_string.suffix.result
+    Suffix      = local.suffix
     Project     = "Agentic Platform Sample"
   }
 }
