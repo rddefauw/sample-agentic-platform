@@ -178,3 +178,9 @@ Chart.lock
 
 # Ignore VS Code workspaces
 *.code-workspace
+
+# Ignore Terraform outputs
+build/terraform-outputs.json
+
+# Ignore Helm values files
+k8s/helm/values/*

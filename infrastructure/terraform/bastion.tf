@@ -163,10 +163,30 @@ resource "aws_instance" "bastion" {
     
     # Update package lists
     apt-get update
+
+    # Install build-essential, clang, and libomp-dev for c++ build of chromaDB.
+    apt-get install -y build-essential clang libomp-dev
     
     # Install required packages
-    apt-get install -y unzip curl jq git python3-pip python3-venv
-    
+    apt-get install -y unzip curl jq git python3-pip python3-venv python3-dev
+
+    # Set compiler environment variables in ubuntu user's profile
+    cat >> /home/ubuntu/.profile << 'PROFILEEOF'
+    # Set compiler environment variables for C++ builds
+    export CC=clang
+    export CXX=clang++
+    export CFLAGS="-fPIC -O3"
+    export CXXFLAGS="-fPIC -O3 -std=c++14"
+    PROFILEEOF
+
+    # Install Docker
+    apt-get install -y docker.io
+    # Allow ubuntu user to use docker without sudo
+    usermod -aG docker ubuntu
+
+    # Install Helm
+    snap install helm --classic
+
     # Install kubectl
     curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
     chmod +x kubectl
@@ -184,13 +204,18 @@ resource "aws_instance" "bastion" {
     mkdir -p /home/ubuntu/.kube
     cp /root/.kube/config /home/ubuntu/.kube/
     chown -R ubuntu:ubuntu /home/ubuntu/.kube
-
-    # Install uv
-    curl -LsSf https://astral.sh/uv/install.sh | sh
     
     # Install code-server (VS Code in the browser)
     su - ubuntu -c "curl -fsSL https://code-server.dev/install.sh | sh"
-    
+
+    # Install uv
+    su - ubuntu -c "curl -LsSf https://astral.sh/uv/install.sh | sh"
+
+    # Add uv environment to .bashrc for auto-loading
+    su - ubuntu -c 'echo "source \$HOME/.local/bin/env" >> $HOME/.bashrc'
+
+    # Git clone the sample repository
+    su - ubuntu -c "git clone https://github.com/aws-samples/sample-agentic-platform.git"
     # Create a simple script to run code-server and kubectl proxy
     cat > /home/ubuntu/start-code-server.sh << 'EOL'
     #!/bin/bash
@@ -411,5 +436,58 @@ resource "aws_iam_policy" "dynamodb_bastion_policy" {
 # Attach the DynamoDB policy to the code server role
 resource "aws_iam_role_policy_attachment" "bastion_dynamodb_attachment" {
   policy_arn = aws_iam_policy.dynamodb_bastion_policy.arn
+  role       = aws_iam_role.bastion_role.name
+}
+
+# ECR policy for the bastion host with least privilege
+resource "aws_iam_policy" "ecr_bastion_policy" {
+  name        = "${local.name_prefix}ecr-bastion-policy"
+  description = "Policy to allow limited ECR operations from bastion host"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      # Auth token is account-wide, can't be restricted to specific repositories
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:GetAuthorizationToken"
+        ]
+        Resource = "*"
+      },
+      # Specific permissions for repositories with the agentic-platform prefix
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:DescribeRepositories",
+          "ecr:CreateRepository",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:GetRepositoryPolicy",
+          "ecr:ListImages",
+          "ecr:BatchGetImage"
+        ]
+        Resource = "arn:aws:ecr:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:repository/agentic-platform-*"
+      },
+      # Push image permissions, more sensitive so restricting to specific repositories
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:InitiateLayerUpload",
+          "ecr:UploadLayerPart",
+          "ecr:CompleteLayerUpload",
+          "ecr:PutImage"
+        ]
+        Resource = "arn:aws:ecr:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:repository/agentic-platform-*"
+      }
+    ]
+  })
+
+  tags = local.common_tags
+}
+
+# Attach the ECR policy to the bastion role
+resource "aws_iam_role_policy_attachment" "bastion_ecr_attachment" {
+  policy_arn = aws_iam_policy.ecr_bastion_policy.arn
   role       = aws_iam_role.bastion_role.name
 }

@@ -1,5 +1,5 @@
 # Deploy Sample Agent Platform
-Here's a guide for deploying the sample agentic platform into an Isengard account. **Warning**: This will deploy resources into your aws account through terraform and charges will apply.
+Here's a guide for deploying the sample agentic platform into an account. **Warning**: This will deploy resources into your aws account through terraform and charges will apply.
 
 **Important Notice:** This project deploys resources in your AWS environment using Terraform. You will incur costs for the AWS resources used. Please be aware of the pricing for services like EKS, Bedrock, OpenSearch, DynamoDB, Elasticache, S3, etc.. in your AWS region.
 
@@ -130,31 +130,17 @@ Because the cluster is private (best practice), if you want to access it from ei
 1 Find your management instance ID
 ```bash
 # This will give you the management instance ID
-aws ec2 describe-instances \
-  --filters "Name=tag:Name,Values=*bastion-instance*" \
+INSTANCE_ID=$(aws ec2 describe-instances \
+  --filters "Name=tag:Name,Values=*bastion-instance*" "Name=instance-state-name,Values=running" \
   --query "Reservations[].Instances[].InstanceId" \
-  --output text
+  --output text)
 ```
 
-2 Setup kubeproxy. 
-Log into the bastion host using SSM to start kubectl proxy on port 8080
-
-```bash
-aws ssm start-session --target i-INSTANCEID
-
-# Switch to ec2-user account
-sudo su - ubuntu
-
-# Spin kube proxy on the jump box.
-$ nohup kubectl proxy --port=8080 --address='0.0.0.0' --accept-hosts='.*' > /tmp/proxy.log 2>&1 &
-```
-After you run nohup, you can close the session.
-
-3 Start port forwarding to the kubectl proxy on the astion host.
+2 Start port forwarding to the kubectl proxy on the bastion host.
 ```bash
 # Port forward through SSM to the kubectl proxy running on the management 
-$ aws ssm start-session \
-  --target i-INSTANCEID \
+aws ssm start-session \
+  --target $INSTANCE_ID \
   --document-name AWS-StartPortForwardingSession \
   --parameters '{"portNumber":["8080"],"localPortNumber":["8080"]}'
 ```
@@ -297,35 +283,17 @@ make langgraph-chat
 ```
 
 # Teardown
-To tear down the project, you need to remove the delection protection on two resources, the Aurora DB and the database backup and ensure you load balancer (contolled by K8s is shut down). 
+To tear down the project, you need to remove the delection protection on the Aurora DB and ensure you load balancer (contolled by K8s is shut down). 
 
 Run this on the bastion host or wherever you deployed helm from. Alternatively you can just delete it from the console. 
 ```bash
 helm uninstall lb-controller
 ```
 
-## Force deletion of backup
-Under postgres.tf, add force_destroy=true
+## Force deletion of Aurora DB.
+Run this command to change your terraform state
 ```bash
-resource "aws_backup_vault" "postgres" {
-  # Add This.
-  force_destroy = true
-  
-  tags = local.common_tags
-}
-```
-
-Under postgres.tf, switch deletion_protection = false
-```bash
-resource "aws_rds_cluster" "postgres" {
-  # Change This
-  deletion_protection = false
-}
-```
-
-If you ran terraform destroy before making these changes and don't want to re-apply, you can apply those changes just to the backup and Aurora Postgres resources
-```bash
-terraform apply -target=aws_backup_vault.postgres -target=aws_rds_cluster.postgres
+terraform apply -auto-approve -var="postgres_deletion_protection=false" -target=aws_rds_cluster.postgres
 ```
 
 Afterwards, you will be able to tear down the resources. 
