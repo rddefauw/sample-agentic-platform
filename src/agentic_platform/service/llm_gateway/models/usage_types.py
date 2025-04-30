@@ -22,6 +22,7 @@ class RateLimits(BaseModel):
 
 class UsagePlan(BaseModel):
     """Usage plan with rate limits"""
+    usage_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     entity_id: str
     entity_type: UsagePlanEntityType
     tenant_id: str = 'SYSTEM' # By default, we assume no tenancy unless the user has a tenant_id (either team or org.)

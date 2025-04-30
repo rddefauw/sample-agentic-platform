@@ -138,7 +138,7 @@ data "aws_ami" "ubuntu" {
 # Code server instance
 resource "aws_instance" "bastion" {
   ami                    = data.aws_ami.ubuntu.id  # Use Ubuntu instead of Amazon Linux
-  instance_type          = "t3.small"
+  instance_type          = "t3.large"
   subnet_id              = aws_subnet.private_1.id
   vpc_security_group_ids = [aws_security_group.bastion_sg.id]
   iam_instance_profile   = aws_iam_instance_profile.bastion_profile.name
@@ -169,6 +169,9 @@ resource "aws_instance" "bastion" {
     
     # Install required packages
     apt-get install -y unzip curl jq git python3-pip python3-venv python3-dev
+
+    # Install Node
+    apt-get install -y nodejs npm
 
     # Set compiler environment variables in ubuntu user's profile
     cat >> /home/ubuntu/.profile << 'PROFILEEOF'

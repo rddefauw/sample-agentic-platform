@@ -12,9 +12,8 @@ from chromadb.config import Settings
 chroma_client = chromadb.PersistentClient(path="../../data/chroma")
 
 # Initialize the Bedrock client
-REGION = 'us-west-2'
 session = boto3.Session()
-bedrock = session.client(service_name='bedrock-runtime', region_name=REGION)
+bedrock = session.client(service_name='bedrock-runtime')
 
 print("✅ Client setup complete!")
 
