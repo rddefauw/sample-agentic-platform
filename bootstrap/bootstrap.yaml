@@ -1,0 +1,428 @@
+Parameters:
+  RepoUrl:
+    Type: String
+    Description: The URL of the repo that the CodeBuild project will clone.
+    Default: "https://github.com/aws-samples/sample-agentic-platform"
+
+  RepoBranchName:
+    Type: String
+    Default: main
+    Description: (Optional) The name of the branch that the CodeBuild project will clone.
+
+  TerraformPath:
+    Type: String
+    Default: sample-agentic-platform/infrastructure/terraform
+    Description: Path to the Terraform code
+
+  FederatedRoleName:
+    Type: String
+    Description: The name of the role for whom these resources are being created.
+
+  CICDRoleName:
+    Type: String
+    Description: The name of the role that will be used for CICD.
+
+  UseKMS:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: Whether to use KMS encryption for CodeBuild artifacts
+
+Conditions:
+  UseKMSEncryption: !Equals 
+    - !Ref UseKMS
+    - "true"
+
+Resources:
+
+  ######################################################
+  # Terraform State Bucket 
+  ######################################################
+
+  TerraformStateBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Join 
+        - '-'
+        - - !Ref AWS::StackName
+          - 'terraform-state'
+          - !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      LoggingConfiguration:
+        DestinationBucketName: !Ref TerraformStateLogsBucket
+        LogFilePrefix: "access-logs/"
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT5M  # 5 minutes
+
+  TerraformStateLogsBucket:
+    Type: AWS::S3::Bucket
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W51
+            reason: "This is the logging bucket for the terraform, we don't need a bucket policy here."
+          - id: W35
+            reason: "This is the access logging bucket itself - adding logging to the logging bucket would create a circular dependency"
+    Properties:
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+
+  TerraformStateBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref TerraformStateBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: EnforceSSLOnly
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource: 
+              - !Sub '${TerraformStateBucket.Arn}/*'
+              - !GetAtt TerraformStateBucket.Arn
+            Condition:
+              Bool:
+                'aws:SecureTransport': false
+
+  ######################################################
+  # CodeBuild Project
+  ######################################################
+
+  InfrastructureCodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Join 
+        - '-'
+        - - !Ref AWS::StackName
+          - 'terraform-deployment'
+          - !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]
+      Description: 'Deploys infrastructure using Terraform'
+      ServiceRole: !Sub 'arn:aws:iam::${AWS::AccountId}:role/${CICDRoleName}'
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:7.0
+        PrivilegedMode: true
+        EnvironmentVariables:
+          - Name: TF_BUCKET_NAME
+            Value: !Ref TerraformStateBucket
+          - Name: TF_STATE_KEY
+            Value: catalogs/terraform.tfstate
+          - Name: REPO_URL
+            Value: !Ref RepoUrl
+          - Name: REPO_BRANCH_NAME
+            Value: !Ref RepoBranchName
+          - Name: TF_PATH
+            Value: !Ref TerraformPath
+          - Name: ADMIN_ROLE_NAME
+            Value: !Ref FederatedRoleName
+          - Name: AWS_REGION
+            Value: !Ref AWS::Region
+      EncryptionKey: !If 
+        - UseKMSEncryption
+        - !GetAtt ProjectKMSKey.Arn
+        - !Ref AWS::NoValue
+      Source:
+        Type: NO_SOURCE
+        BuildSpec: |
+          version: 0.2
+          phases:
+            install:
+              runtime-versions:
+                nodejs: 18
+              commands:
+                - echo "Installing dependencies..."
+                - apt-get update -y
+                - apt-get install -y wget unzip jq
+                
+                - TERRAFORM_VERSION="1.11.3"
+                - echo "Installing Terraform ${TERRAFORM_VERSION}..."
+                - wget -q "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip"
+                - unzip "terraform_${TERRAFORM_VERSION}_linux_amd64.zip"
+                - mv terraform /usr/local/bin/
+                - terraform version
+            
+            pre_build:
+              commands:
+                - export TF_IN_AUTOMATION=true
+                - STACK_OPERATION="${EVENT_REQUEST_TYPE}"
+                - echo "Stack operation [$STACK_OPERATION]"
+                
+                - git clone --single-branch --branch $REPO_BRANCH_NAME $REPO_URL
+                
+                - cd $TF_PATH
+                
+                - echo "Creating backend configuration..."
+                - |
+                  cat > backend.tf << EOF
+                  terraform {
+                    backend "s3" {
+                      bucket         = "${TF_BUCKET_NAME}"
+                      key            = "${TF_STATE_KEY}"
+                      region         = "${AWS_REGION}"
+                      use_lockfile   = true
+                      encrypt        = true
+                    }
+                  }
+                  EOF
+                - echo "Creating terraform.tfvars file..."
+                - |
+                  cat > terraform.tfvars << EOF
+                  federated_role_name = "${ADMIN_ROLE_NAME}"
+                  aws_region          = "${AWS_REGION}"
+                  EOF
+                
+                - terraform init -input=false
+            
+            build:
+              commands:
+                - |
+                  if [ "$STACK_OPERATION" = "create" ] || [ "$STACK_OPERATION" = "update" ]; then
+                    echo "Creating Terraform plan... for $STACK_OPERATION"
+                    terraform plan -out=tfplan -input=false
+                    
+                    echo "Applying Terraform plan..."
+                    terraform apply -auto-approve tfplan
+                    
+                    echo "Deployment completed. Outputs:"
+                    terraform output -json | jq
+                  elif [ "$STACK_OPERATION" = "delete" ]; then
+                    echo "Preparing to destroy infrastructure..."
+                    
+                    terraform apply -auto-approve -var="postgres_deletion_protection=false" -target=aws_rds_cluster.postgres
+                    
+                    echo "Destroying infrastructure..."
+                    terraform destroy -auto-approve
+                    
+                    echo "Infrastructure successfully destroyed"
+                    echo "Emptying the Terraform state bucket to allow CloudFormation to delete it..."
+                    aws s3 rm s3://${TF_BUCKET_NAME} --recursive
+                  else
+                    echo "Invalid stack operation: $STACK_OPERATION"
+                    exit 1
+                  fi
+            post_build:
+              commands:
+                - if [ "$CODEBUILD_BUILD_SUCCEEDING" = "1" ]; then export STATUS="SUCCESS"; else export STATUS="FAILED"; fi
+                - export JSON_DATA="{\"Status\":\"$STATUS\",\"Reason\":\"See CloudWatch Log\",\"PhysicalResourceId\":\"$CONTEXT_LOG_STREAM_NAME\",\"StackId\":\"$EVENT_STACK_ID\",\"RequestId\":\"$EVENT_REQUEST_ID\",\"LogicalResourceId\":\"$EVENT_LOGICAL_RESOURCE_ID\",\"Data\":{}}"
+                - echo "$JSON_DATA"
+                - curl -X PUT --data-binary "$JSON_DATA" "$EVENT_RESPONSE_URL"
+
+  ProjectKMSKey:
+    Condition: UseKMSEncryption
+    Type: AWS::KMS::Key
+    Properties:
+      Description: KMS key for CodeBuild project encryption
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: 'kms:*'
+            Resource: '*'
+          - Sid: Allow CodeBuild Role to use the key
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:role/${CICDRoleName}'
+            Action:
+              - kms:Decrypt
+              - kms:DescribeKey
+              - kms:Encrypt
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+            Resource: '*'
+          - Sid: Allow Federated Role to manage the key
+            Effect: Allow
+            Principal:
+              AWS: 
+                - !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+                - !Sub 'arn:aws:iam::${AWS::AccountId}:role/${FederatedRoleName}'
+            Action:
+              - kms:Create*
+              - kms:Describe*
+              - kms:Enable*
+              - kms:List*
+              - kms:Put*
+              - kms:Update*
+              - kms:Revoke*
+              - kms:Disable*
+              - kms:Get*
+              - kms:Delete*
+              - kms:TagResource
+              - kms:UntagResource
+              - kms:ScheduleKeyDeletion
+              - kms:CancelKeyDeletion
+            Resource: '*'
+
+  ProjectKMSKeyAlias:
+    Condition: UseKMSEncryption
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub 'alias/${AWS::StackName}-codebuild-key'
+      TargetKeyId: !Ref ProjectKMSKey
+
+  ######################################################
+  # Code build trigger lambda role
+  ######################################################
+
+  CodeBuildTriggerLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: "2012-10-17"
+      Description: role for lambda to trigger codebuild
+      ManagedPolicyArns:
+        - Ref: CodeBuildTriggerLambdaRolePolicy
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        
+  ######################################################
+  # Policy for the code build trigger lambda role
+  ######################################################
+
+  CodeBuildTriggerLambdaRolePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - codebuild:StartBuild
+              - codebuild:StopBuild
+              - codebuild:BatchGetBuilds
+            Effect: Allow
+            Resource: !Sub 'arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:project/${InfrastructureCodeBuildProject}'
+        Version: "2012-10-17"
+      Description: role policy for lambda to trigger codebuild
+      Path: /
+
+  ###############################################################
+  # Lambda to trigger the CodeBuild which creates our terraform.
+  ###############################################################
+
+  TriggerCodeBuild:
+    Type: AWS::Lambda::Function
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W89
+            reason: "This Lambda function is a CloudFormation custom resource for initial deployment and doesn't need to be in VPC"
+    Properties:
+      Code:
+        ZipFile: |-
+          import boto3
+          import os
+
+          def lambda_handler(event, context):
+              print(event)
+              project_name = os.environ.get("PROJECT_NAME")
+              cb_cli = boto3.client("codebuild")
+              request_type = event['RequestType']
+              cb_env_vars = [
+                  {
+                      'name': 'EVENT_REQUEST_TYPE',
+                      'value': request_type.lower(),
+                      'type': 'PLAINTEXT'
+                  },
+                  {
+                      'name': 'EVENT_REQUEST_ID',
+                      'value': event['RequestId'],
+                      'type': 'PLAINTEXT'
+                  },
+                  {
+                      'name': 'EVENT_STACK_ID',
+                      'value': event['StackId'],
+                      'type': 'PLAINTEXT'
+                  },
+                  {
+                      'name': 'EVENT_LOGICAL_RESOURCE_ID',
+                      'value': event['LogicalResourceId'],
+                      'type': 'PLAINTEXT'
+                  },
+                  {
+                      'name': 'EVENT_RESPONSE_URL',
+                      'value': event['ResponseURL'],
+                      'type': 'PLAINTEXT'
+                  },
+                  {
+                      'name': 'CONTEXT_LOG_STREAM_NAME',
+                      'value': context.log_stream_name,
+                      'type': 'PLAINTEXT'
+                  },
+              ]
+              cb_cli.start_build(projectName=project_name, environmentVariablesOverride=cb_env_vars)
+      Role: !GetAtt CodeBuildTriggerLambdaRole.Arn
+      Environment:
+        Variables:
+          PROJECT_NAME: !Ref InfrastructureCodeBuildProject
+      Handler: index.lambda_handler
+      Runtime: python3.11
+      Timeout: 900
+      ReservedConcurrentExecutions: 1
+
+  ################################################################################
+  # Custom resource to trigger the CodeBuild which creates our terraform.
+  ################################################################################
+
+  CustomProvisioningResource:
+    Type: AWS::CloudFormation::CustomResource
+    Properties:
+      ServiceToken: !GetAtt TriggerCodeBuild.Arn
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Delete
+
+Outputs:
+  StateBucketName:
+    Description: S3 bucket for Terraform state
+    Value: !Ref TerraformStateBucket
+  
+  TerraformRoleArn:
+    Description: IAM role ARN for Terraform execution
+    Value: !Sub 'arn:aws:iam::${AWS::AccountId}:role/${CICDRoleName}'
+  
+  CodeBuildProjectName:
+    Description: Name of the CodeBuild project for infrastructure deployment
+    Value: !Ref InfrastructureCodeBuildProject
+  
+  StartBuildCommand:
+    Description: Command to start a build with Create operation
+    Value: !Sub "aws codebuild start-build --project-name ${InfrastructureCodeBuildProject} --environment-variables-override name=EVENT_REQUEST_TYPE,value=Create,type=PLAINTEXT"
+  
+  DestroyCommand:
+    Description: Command to start a build with Delete operation
+    Value: !Sub "aws codebuild start-build --project-name ${InfrastructureCodeBuildProject} --environment-variables-override name=EVENT_REQUEST_TYPE,value=Delete,type=PLAINTEXT"

@@ -1,22 +1,28 @@
 # Deploy Sample Agent Platform
-Here's a guide for deploying the sample agentic platform into an account. **Warning**: This will deploy resources into your aws account through terraform and charges will apply.
+Here's a guide for deploying the sample agentic platform into an account.
 
 **Important Notice:** This project deploys resources in your AWS environment using Terraform. You will incur costs for the AWS resources used. Please be aware of the pricing for services like EKS, Bedrock, OpenSearch, DynamoDB, Elasticache, S3, etc.. in your AWS region.
 
 Required Permissions: You need elevated permissions, to deploy the Terraform stack.
 
-## Bootstrap
-Optionally, you can add a bootstrap to spin up an S3 bucket and DDB table to manage your terraform state.
-If you have that available, you can uncomment the lines in main.tf. 
-
-**INFO**: You will need a service linked role for opensearch for the terraform to execute. Run the following command
+## Prerequisites
+1 You will need a service linked role for opensearch for the terraform to execute. Run the following command
 ```bash
 $ aws iam create-service-linked-role --aws-service-name opensearchservice.amazonaws.com
 ```
 If it fails because it already exists, that's okay. We just need it present in the account.
 
+2 If you're using the bootstrap stack, you'll need to provide the name of the role you're using for the CICDRoleName parameter and a role for the FederatedRoleName parameter which will have access to the EKS console.
+
 ## Create Infrastructure
-The base of this infrastructure is Kubernetes on EKS. To get started, you need to deploy the stack. First create a terraform.tfvars file in the infrastructure/terraform directory like this:
+
+### Bootstrap Using CloudFormation
+The easiest way to deploy is to use the boostrap.yaml file we've provided in the bootstrap directory. You can follow the instructions in the bootstrap/README.md to deploy a bootstrap stack that will create an S3 bucket and DDB table to manage your terraform state.
+
+To install on your own, follow the instructions below.
+
+### Deploy Terraform On Your Own
+First create a terraform.tfvars file in the infrastructure/terraform directory like this:
 
 ```bash
 ########################################################
