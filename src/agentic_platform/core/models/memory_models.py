@@ -97,61 +97,54 @@ class MediaInfo(BaseModel):
 class Message(BaseModel):
     """A message in the conversation"""
     role: Literal["user", "assistant"]
-    text: Optional[str] = None
-    # Store complete media info in single fields
-    image: Optional[MediaInfo] = None
-    audio: Optional[MediaInfo] = None
-    json: Optional[Dict[str, Any]] = None
+    content: Optional[List[BaseContent]] = None
     tool_calls: List[ToolCall] = Field(default_factory=list)
     tool_results: List[ToolResult] = Field(default_factory=list)
-    # For forward compatibility with where the industry is heading
-    content: Optional[List[BaseContent]] = None
     timestamp: float = Field(default_factory=lambda: datetime.now().timestamp())
+    
+    def __init__(self, role: str, text: Optional[str] = None, **data):
+        """Initialize a Message with optional text parameter for convenience."""
+        if text is not None and 'content' not in data:
+            # If text is provided but content isn't, create content with text
+            data['content'] = [TextContent(type="text", text=text)]
+        super().__init__(role=role, **data)
 
     @property
     def timestamp_datetime(self) -> datetime:
         return datetime.fromtimestamp(self.timestamp)
-    
-    # This is how we syncronize the fields with the content.
-    def model_post_init(self, __context: Any) -> None:
-        """Called after the model is fully initialized"""
-        # Initialize content if it's None
-        if self.content is None:
-            self.content = []
-            
-        # Sync from fields to content
-        if self.text:
-            text_content = TextContent(type="text", text=self.text)
-            self.content.append(text_content)
-            
-        if self.image:
-            self.content.append(ImageContent(
-                type="image",
-                data=self.image.data,
-                mimeType=self.image.mime_type
-            ))
-            
-        if self.audio:
-            self.content.append(AudioContent(
-                type="audio",
-                data=self.audio.data,
-                mimeType=self.audio.mime_type
-            ))
-            
-        if self.json:
-            self.content.append(JsonContent(type="json", content=self.json))
-        
-        # If no fields but content is provided, sync from content to fields
-        elif self.content:
+
+    def _get_content_by_type(self, content_type: str):
+        if self.content:
             for item in self.content:
-                if isinstance(item, TextContent) and not self.text:
-                    self.text = item.text
-                elif isinstance(item, ImageContent) and not self.image:
-                    self.image = MediaInfo(data=item.data, mime_type=item.mimeType)
-                elif isinstance(item, AudioContent) and not self.audio:
-                    self.audio = MediaInfo(data=item.data, mime_type=item.mimeType)
-                elif isinstance(item, JsonContent) and not self.json:
-                    self.json = item.content
+                if getattr(item, 'type', None) == content_type:
+                    return item
+        return None
+
+    def get_text_content(self) -> Optional[TextContent]:
+        return self._get_content_by_type("text")
+
+    def get_image_content(self) -> Optional[ImageContent]:
+        return self._get_content_by_type("image")
+
+    def get_audio_content(self) -> Optional[AudioContent]:
+        return self._get_content_by_type("audio")
+
+    def get_json_content(self) -> Optional[JsonContent]:
+        return self._get_content_by_type("json")
+
+    @property
+    def text(self) -> Optional[str]:
+        # Convenience property: returns the aggregate of all text content blocks as a single string, or None if there are none.
+        if not self.content:
+            return None
+        
+        texts = [item.text for item in self.content if getattr(item, 'type', None) == "text"]
+        return " ".join(texts) if texts else None
+
+    @classmethod
+    def from_text(cls, role: str, text: str, **kwargs) -> "Message":
+        """Convenience constructor to create a Message with a single TextContent block."""
+        return cls(role=role, content=[TextContent(type="text", text=text)], **kwargs)
 
 class SessionContext(BaseModel):
     """Represents a single conversation"""

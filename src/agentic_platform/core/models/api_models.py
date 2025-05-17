@@ -4,11 +4,11 @@ from agentic_platform.core.models.agent_models import TraceEvent, StreamChunk
 from agentic_platform.core.models.vectordb_models import VectorSearchRequest, VectorSearchResponse
 
 class ChatRequest(BaseModel):
-    message: str
+    text: str
     conversationId: Optional[str] = None
 
 class ChatResponse(BaseModel):
-    message: str
+    text: str
     conversationId: str
 class AgentRequest(BaseModel):
     """Request model for agent tasks"""
