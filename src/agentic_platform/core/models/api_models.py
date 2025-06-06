@@ -1,7 +1,8 @@
 from pydantic import BaseModel
-from typing import Optional, Dict, Any, List
-from agentic_platform.core.models.agent_models import TraceEvent, StreamChunk
+from typing import Optional, Dict, Any, List, Union
+from agentic_platform.core.models.streaming_models import StreamEvent
 from agentic_platform.core.models.vectordb_models import VectorSearchRequest, VectorSearchResponse
+from agentic_platform.core.models.streaming_models import BaseStreamEvent
 
 class ChatRequest(BaseModel):
     text: str
@@ -10,6 +11,7 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     text: str
     conversationId: str
+
 class AgentRequest(BaseModel):
     """Request model for agent tasks"""
     text: str
@@ -25,12 +27,8 @@ class AgentResponse(BaseModel):
     """Response model for agent tasks"""
     message: str
     session_id: str
-    traces: Optional[List[TraceEvent]] = None
+    traces: Optional[List[StreamEvent]] = None
 
-class AgentResponseStream(AgentResponse):
-    """Response model for agent tasks"""
-    conversationId: str
-    chunk: StreamChunk
 
 class SearchWorkflowRequest(BaseModel):
     """Request model for search workflow"""
@@ -40,23 +38,14 @@ class SearchWorkflowResponse(BaseModel):
     """Response model for search workflow"""
     response: str
     conversationId: str
-    traces: Optional[List[TraceEvent]] = None
+    traces: Optional[List[StreamEvent]] = None
 
 class RetrieveRequest(BaseModel):
-    """
-    Request model for retrieve using vector search.
-
-    Leaving space for other types of retrieval queries.
-    
-    """
+    """Request model for retrieve using vector search."""
     vectorsearch_request: VectorSearchRequest
 
 class RetrieveResponse(BaseModel):
-    """
-    Response model for retrieve
-
-    Leaving space for other types of retrieval queries.
-    """
+    """Response model for retrieve"""
     vectorsearch_results: VectorSearchResponse
 
 

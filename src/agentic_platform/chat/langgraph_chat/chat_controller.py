@@ -33,7 +33,7 @@ class ChatController:
         # Convert the variables to a dictionary for the prompt to insert.
         inputs: Dict[str, Any] = {
             "chat_history": '',
-            "message": request.message
+            "message": request.text
         }
 
         # Create a Chat prompt object from the inputs.
@@ -46,6 +46,6 @@ class ChatController:
         
         # Return the chat response object to the server.
         return ChatResponse(
-            message=cls.extract_response(response.text),
+            text=cls.extract_response(response.text),
             conversationId=request.conversationId if request.conversationId else str(uuid.uuid4())
         )
