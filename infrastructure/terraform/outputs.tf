@@ -101,6 +101,7 @@ output "irsa_roles" {
     memory_gateway    = aws_iam_role.memory_gateway_role.arn
     bedrock_retrieval = aws_iam_role.retrieval_gateway_role.arn
     otel_collector    = aws_iam_role.otel_collector_role.arn
+    secrets-operator  = aws_iam_role.external_secrets_role.arn
   }
 }
 

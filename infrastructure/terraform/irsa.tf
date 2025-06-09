@@ -444,3 +444,66 @@ resource "aws_iam_role_policy_attachment" "memory_gateway_cloudwatch_attachment"
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
   role       = aws_iam_role.memory_gateway_role.name
 }
+
+#################################################################
+# IRSA for External Secrets Operator to read from Parameter Store
+#################################################################
+resource "aws_iam_policy" "external_secrets_parameter_store_policy" {
+  name        = "${local.name_prefix}external-secrets-parameter-store-policy"
+  description = "Policy to allow External Secrets Operator to read from Parameter Store"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:GetParameter",
+          "ssm:GetParameters",
+          "ssm:GetParametersByPath",
+          "ssm:DescribeParameters"
+        ]
+        Resource = [
+          "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/*"
+        ]
+      }
+    ]
+  })
+
+  tags = local.common_tags
+}
+
+resource "aws_iam_role" "external_secrets_role" {
+  name = "${local.name_prefix}external-secrets-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Federated = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${replace(aws_eks_cluster.main.identity[0].oidc[0].issuer, "https://", "")}"
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "${replace(aws_eks_cluster.main.identity[0].oidc[0].issuer, "https://", "")}:sub": "system:serviceaccount:default:external-secrets-sa"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = merge(
+    local.common_tags,
+    {
+      Name = "${local.name_prefix}external-secrets-role"
+    }
+  )
+}
+
+# Attach policy to the External Secrets role
+resource "aws_iam_role_policy_attachment" "external_secrets_parameter_store_attachment" {
+  policy_arn = aws_iam_policy.external_secrets_parameter_store_policy.arn
+  role       = aws_iam_role.external_secrets_role.name
+}
