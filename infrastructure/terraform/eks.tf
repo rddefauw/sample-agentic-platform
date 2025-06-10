@@ -57,7 +57,7 @@ resource "aws_eks_cluster" "main" {
   # checkov:skip=CKV_AWS_339: THis is the latest up to date version of EKS with ADOT support.
   name     = "${local.name_prefix}eks"
   role_arn = aws_iam_role.eks_cluster_role.arn
-  version  = "1.31"
+  version  = "1.32"
 
   vpc_config {
     subnet_ids              = [aws_subnet.private_1.id, aws_subnet.private_2.id]
@@ -153,7 +153,7 @@ resource "aws_eks_addon" "kube_proxy" {
 resource "aws_eks_addon" "cert_manager" {
   cluster_name      = aws_eks_cluster.main.name
   addon_name        = "cert-manager"
-  addon_version     = "v1.17.1-eksbuild.1"  # Use the latest version available at the time
+  addon_version     = "v1.17.2-eksbuild.1"  # Use the latest version available at the time
   
   resolve_conflicts_on_update = "OVERWRITE"
   
@@ -169,7 +169,7 @@ resource "aws_eks_addon" "cert_manager" {
 resource "aws_eks_addon" "adot" {
   cluster_name      = aws_eks_cluster.main.name
   addon_name        = "adot"
-  addon_version     = "v0.109.0-eksbuild.2"  # Specific version requested
+  addon_version     = "v0.117.0-eksbuild.1"  # Specific version requested
   
   # Use PRESERVE to maintain any custom configurations
   resolve_conflicts_on_update = "PRESERVE"
