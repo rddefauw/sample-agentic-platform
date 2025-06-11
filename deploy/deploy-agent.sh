@@ -8,15 +8,19 @@ fi
 
 SERVICE_NAME=$1
 
-# Define the Terraform directory
-TERRAFORM_DIR="infrastructure/terraform"
-
 # Build and push the container
 ./deploy/build-container.sh $SERVICE_NAME
 
-COGNITO_USER_POOL_ID=$(cd "$TERRAFORM_DIR" && terraform output -raw cognito_user_pool_id)
-COGNITO_USER_CLIENT_ID=$(cd "$TERRAFORM_DIR" && terraform output -raw cognito_user_client_id)
-COGNITO_M2M_CLIENT_ID=$(cd "$TERRAFORM_DIR" && terraform output -raw cognito_m2m_client_id)
+# Extract terraform variables from parameter store
+PARAMS=$(aws ssm get-parameter \
+  --name "/agentic-platform/config/dev" \
+  --with-decryption \
+  --query 'Parameter.Value' \
+  --output text)
+
+COGNITO_USER_POOL_ID=$(echo "$PARAMS" | jq -r '.COGNITO_USER_POOL_ID')
+COGNITO_USER_CLIENT_ID=$(echo "$PARAMS" | jq -r '.COGNITO_USER_CLIENT_ID')
+COGNITO_M2M_CLIENT_ID=$(echo "$PARAMS" | jq -r '.COGNITO_M2M_CLIENT_ID')
 
 # Get ECR URI for Helm
 AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)

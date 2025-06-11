@@ -5,7 +5,7 @@ metadata:
   namespace: {{ .Values.namespace }}
 spec:
   mode: deployment
-  serviceAccount: otel-collector
+  serviceAccount: {{ .Values.serviceAccount.name }}
   config:
     receivers:
       otlp:

@@ -35,5 +35,5 @@ roleRef:
   name: otel-collector-role
 subjects:
 - kind: ServiceAccount
-  name: otel-collector
+  name: {{ .Values.serviceAccount.name }}
   namespace: {{ .Values.namespace }}

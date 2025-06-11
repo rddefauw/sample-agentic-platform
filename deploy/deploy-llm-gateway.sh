@@ -2,22 +2,27 @@
 
 # Define the service name and Terraform directory
 SERVICE_NAME="llm-gateway"
-TERRAFORM_DIR="infrastructure/terraform"
 
 # Build and push the container
 ./deploy/build-container.sh $SERVICE_NAME
 
-# Get Terraform outputs using the direct output values
-echo "Retrieving Terraform outputs..."
-REDIS_ENDPOINT=$(cd "$TERRAFORM_DIR" && terraform output -raw redis_ratelimit_endpoint)
-REDIS_PORT=$(cd "$TERRAFORM_DIR" && terraform output -raw redis_ratelimit_port)
-REDIS_PASSWORD_SECRET_ARN=$(cd "$TERRAFORM_DIR" && terraform output -raw redis_password_secret_arn)
-DYNAMODB_USAGE_PLANS_TABLE=$(cd "$TERRAFORM_DIR" && terraform output -raw usage_plans_table_name)
-DYNAMODB_USAGE_LOGS_TABLE=$(cd "$TERRAFORM_DIR" && terraform output -raw usage_logs_table_name)
-LLM_GATEWAY_ROLE_ARN=$(cd "$TERRAFORM_DIR" && terraform output -raw llm_gateway_role_arn)
-COGNITO_USER_POOL_ID=$(cd "$TERRAFORM_DIR" && terraform output -raw cognito_user_pool_id)
-COGNITO_USER_CLIENT_ID=$(cd "$TERRAFORM_DIR" && terraform output -raw cognito_user_client_id)
-COGNITO_M2M_CLIENT_ID=$(cd "$TERRAFORM_DIR" && terraform output -raw cognito_m2m_client_id)
+# Extract terraform variables from parameter store
+PARAMS=$(aws ssm get-parameter \
+  --name "/agentic-platform/config/dev" \
+  --with-decryption \
+  --query 'Parameter.Value' \
+  --output text)
+
+REDIS_HOST=$(echo "$PARAMS" | jq -r '.REDIS_HOST')
+REDIS_PORT=$(echo "$PARAMS" | jq -r '.REDIS_PORT')
+REDIS_PASSWORD_SECRET_ARN=$(echo "$PARAMS" | jq -r '.REDIS_PASSWORD_SECRET_ARN')
+DYNAMODB_USAGE_PLANS_TABLE=$(echo "$PARAMS" | jq -r '.DYNAMODB_USAGE_PLANS_TABLE')
+DYNAMODB_USAGE_LOGS_TABLE=$(echo "$PARAMS" | jq -r '.DYNAMODB_USAGE_LOGS_TABLE')
+LLM_GATEWAY_ROLE_ARN=$(echo "$PARAMS" | jq -r '.LLM_GATEWAY_ROLE_ARN')
+COGNITO_USER_POOL_ID=$(echo "$PARAMS" | jq -r '.COGNITO_USER_POOL_ID')
+COGNITO_USER_CLIENT_ID=$(echo "$PARAMS" | jq -r '.COGNITO_USER_CLIENT_ID')
+COGNITO_M2M_CLIENT_ID=$(echo "$PARAMS" | jq -r '.COGNITO_M2M_CLIENT_ID')
+
 
 # Get ECR URI for Helm
 AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
@@ -32,7 +37,7 @@ helm upgrade --install $SERVICE_NAME ./k8s/helm/charts/agentic-service \
   --set serviceAccount.roleArn=$LLM_GATEWAY_ROLE_ARN \
   --set serviceAccount.name="llm-gateway-sa" \
   --set config.AWS_DEFAULT_REGION=$AWS_REGION \
-  --set config.REDIS_HOST=$REDIS_ENDPOINT \
+  --set config.REDIS_HOST=$REDIS_HOST \
   --set config.REDIS_PORT=$REDIS_PORT \
   --set config.REDIS_PASSWORD_SECRET_ARN=$REDIS_PASSWORD_SECRET_ARN \
   --set config.DYNAMODB_USAGE_PLANS_TABLE=$DYNAMODB_USAGE_PLANS_TABLE \

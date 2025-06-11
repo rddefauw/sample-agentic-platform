@@ -1,4 +1,10 @@
 clusterName: "your-eks-cluster"
 region: "us-west-2"
-irsaRoleArn: "arn:aws:iam::123456789012:role/adot-collector-role"
+
+# Service account for permissions
+serviceAccount:
+  name: "otel-collector-sa"
+  roleArn: ""
+  create: true
+
 namespace: "observability"

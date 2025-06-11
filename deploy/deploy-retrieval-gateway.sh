@@ -2,24 +2,22 @@
 
 # Define the service name and Terraform directory
 SERVICE_NAME="retrieval-gateway"
-TERRAFORM_DIR="infrastructure/terraform"
 
 # Build and push the container
 ./deploy/build-container.sh $SERVICE_NAME
 
-# Get Terraform outputs using the direct output values
-echo "Retrieving Terraform outputs..."
+# Extract terraform variables from parameter store
+PARAMS=$(aws ssm get-parameter \
+  --name "/agentic-platform/config/dev" \
+  --with-decryption \
+  --query 'Parameter.Value' \
+  --output text)
 
-# Get PostgreSQL database outputs
-KNOWLEDGE_BASE_ID=$(cd "$TERRAFORM_DIR" && terraform output -raw knowledge_base_id)
-
-# Get Cognito outputs
-COGNITO_USER_POOL_ID=$(cd "$TERRAFORM_DIR" && terraform output -raw cognito_user_pool_id)
-COGNITO_USER_CLIENT_ID=$(cd "$TERRAFORM_DIR" && terraform output -raw cognito_user_client_id)
-COGNITO_M2M_CLIENT_ID=$(cd "$TERRAFORM_DIR" && terraform output -raw cognito_m2m_client_id)
-
-# Get IAM role ARN for memory gateway (create this in your IAM terraform)
-RETRIEVAL_GATEWAY_ROLE_ARN=$(cd "$TERRAFORM_DIR" && terraform output -raw retrieval_gateway_role_arn || echo "")
+KNOWLEDGE_BASE_ID=$(echo "$PARAMS" | jq -r '.KNOWLEDGE_BASE_ID')
+COGNITO_USER_POOL_ID=$(echo "$PARAMS" | jq -r '.COGNITO_USER_POOL_ID')
+COGNITO_USER_CLIENT_ID=$(echo "$PARAMS" | jq -r '.COGNITO_USER_CLIENT_ID')
+COGNITO_M2M_CLIENT_ID=$(echo "$PARAMS" | jq -r '.COGNITO_M2M_CLIENT_ID')
+RETRIEVAL_GATEWAY_ROLE_ARN=$(echo "$PARAMS" | jq -r '.RETRIEVAL_GATEWAY_ROLE_ARN')
 
 # Get ECR URI for Helm
 AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)

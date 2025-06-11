@@ -1,20 +1,22 @@
 #!/bin/bash
 
-# Get all IRSA roles
-IRSA_ROLES=$(terraform -chdir=infrastructure/terraform output -json irsa_roles)
+# Extract terraform variables from parameter store
+PARAMS=$(aws ssm get-parameter \
+  --name "/agentic-platform/config/dev" \
+  --with-decryption \
+  --query 'Parameter.Value' \
+  --output text)
 
-# Extract specific role ARNs
-OTEL_ROLE_ARN=$(echo $IRSA_ROLES | jq -r '.otel_collector')
+CLUSTER_NAME=$(echo "$PARAMS" | jq -r '.CLUSTER_NAME')
+OTEL_COLLECTOR_ROLE_ARN=$(echo "$PARAMS" | jq -r '.OTEL_COLLECTOR_ROLE_ARN')
 
-# Get OpenSearch endpoint
-CLUSTER_NAME=$(terraform -chdir=infrastructure/terraform output -raw eks_cluster_name)
-REGION=$(aws configure get region)
+AWS_REGION=$(aws configure get region)
 
 # Install the OpenTelemetry Helm chart
 helm upgrade --install otel ./k8s/helm/charts/otel \
   --namespace observability \
   --create-namespace \
-  --set irsaRoleArn="${OTEL_ROLE_ARN}" \
+  --set serviceAccount.roleArn="${OTEL_COLLECTOR_ROLE_ARN}" \
   --set clusterName="${CLUSTER_NAME}" \
-  --set region="${REGION}"
+  --set region="${AWS_REGION}"
 

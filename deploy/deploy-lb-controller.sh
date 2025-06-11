@@ -1,17 +1,18 @@
 #!/bin/bash
 # set -e
 
-# Because the chart requires information from the Terraform output, 
-# we need to run this script after the Terraform deployment is complete.
+# Extract terraform variables from parameter store
+PARAMS=$(aws ssm get-parameter \
+  --name "/agentic-platform/config/dev" \
+  --with-decryption \
+  --query 'Parameter.Value' \
+  --output text)
 
-# Define the Terraform directory
-TERRAFORM_DIR="infrastructure/terraform"
+CLUSTER_NAME=$(echo "$PARAMS" | jq -r '.CLUSTER_NAME')
+AWS_LOAD_BALANCER_CONTROLLER_ROLE_ARN=$(echo "$PARAMS" | jq -r '.AWS_LOAD_BALANCER_CONTROLLER_ROLE_ARN')
+VPC_ID=$(echo "$PARAMS" | jq -r '.VPC_ID')
 
-# Get values directly using absolute paths
-echo "Retrieving Terraform outputs..."
-CLUSTER_NAME=$(cd "$TERRAFORM_DIR" && terraform output -raw eks_cluster_name)
-ROLE_ARN=$(cd "$TERRAFORM_DIR" && terraform output -raw aws_load_balancer_controller_role_arn)
-VPC_ID=$(cd "$TERRAFORM_DIR" && terraform output -raw vpc_id)
+
 REGION=$(aws configure get region)
 
 echo "Retrieved values:"
@@ -32,6 +33,6 @@ helm upgrade --install lb-controller "$CHART_DIR"  \
     --set aws-load-balancer-controller.clusterName="$CLUSTER_NAME" \
     --set aws-load-balancer-controller.region="$REGION" \
     --set aws-load-balancer-controller.vpcId="$VPC_ID" \
-    --set "aws-load-balancer-controller.serviceAccount.annotations.eks\.amazonaws\.com/role-arn=$ROLE_ARN"
+    --set "aws-load-balancer-controller.serviceAccount.annotations.eks\.amazonaws\.com/role-arn=$AWS_LOAD_BALANCER_CONTROLLER_ROLE_ARN"
 
 echo "Cluster components deployed successfully!"
