@@ -170,6 +170,26 @@ kubectl get nodes
 ```
 
 6 Run the following command to push containers to ecr and deploy helm chart.
+
+**Note:**: 
+
+This will expose a publically accessible application load balancer. To enable https, you will need a TLS certificate. If you already have a TLS certificate, you can skip this section.
+
+However, if you don't have one and want to proceed with running this sample, you can generate a private certificate associated with a domain using the following openssl command:
+
+```bash
+openssl req \
+  -x509 -nodes -days 365 -sha256 \
+  -subj '/C=US/ST=Oregon/L=Portland/CN=*.elb.amazonaws.com' \
+  -newkey rsa:2048 -keyout key.pem -out cert.pem
+
+aws acm import-certificate --certificate fileb://cert.pem --private-key fileb://key.pem
+```
+
+You should obtain a TLS Certificate that has been validated by a certificate authority, import it into AWS Certificate Manager, and reference it when launching the AWS CloudFormation Stack.
+
+Once you've uploaded the cert, update the k8s/helm/charts/agentic-service/values.yaml file with your ssl.certificateArn value with the ARN you just created. This is a pre-requisite and the load balancer will not deploy without it.
+
 ```bash
 # Make all scripts in the deploy directory executable
 chmod +x deploy/*.sh

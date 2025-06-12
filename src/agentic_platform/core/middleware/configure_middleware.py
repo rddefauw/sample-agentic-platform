@@ -22,7 +22,7 @@ def configuration_server_middleware(app: FastAPI, path_prefix: str, excluded_pat
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"], # nosemgrep: wildcard-cors
-        allow_credentials=True,
+        allow_credentials=False,
         allow_methods=["GET", "POST", "PUT", "DELETE"],
         allow_headers=["Authorization", "Content-Type", "X-Service-ID"],
     )
