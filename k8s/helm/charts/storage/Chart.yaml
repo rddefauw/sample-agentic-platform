@@ -1,6 +1,6 @@
 apiVersion: v2
-name: cluster-base
-description: Internal base chart for EKS cluster configuration
+name: storage
+description: Internal chart for storage configuration
 type: application
 version: 0.1.0
 appVersion: "0.1.0"

@@ -1,0 +1,24 @@
+# Values for the external-secrets wrapper chart
+
+# Namespace for the service account
+# namespace: external-secrets-system
+namespace: default
+
+# Environment (dev, staging, prod)
+environment: dev  # Will be overridden by ArgoCD
+
+serviceAccount:
+  create: true
+  name: 'external-secrets-sa'
+  roleArn: '' # Dynamically created from the bootstrap EKS annotations
+
+# AWS configuration
+aws:
+  region: ""  # Dynamically injected from the EKS annotations.
+
+# Define the parameter store configuration
+parameterStore:
+  name: aws-parameter-store
+  # namespace: external-secrets-system
+  namespace: default
+  basePath: /agentic-platform/config
