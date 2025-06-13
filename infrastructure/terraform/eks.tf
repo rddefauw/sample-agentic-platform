@@ -184,6 +184,25 @@ resource "aws_eks_addon" "adot" {
   tags = local.common_tags
 }
 
+# EBS CSI Driver addon - required for persistent volumes
+resource "aws_eks_addon" "ebs_csi_driver" {
+  cluster_name      = aws_eks_cluster.main.name
+  addon_name        = "aws-ebs-csi-driver"
+  addon_version     = "v1.44.0-eksbuild.1"
+  
+  # Link service account
+  service_account_role_arn = aws_iam_role.ebs_csi_driver_role.arn
+  
+  resolve_conflicts_on_update = "PRESERVE"
+  
+  depends_on = [
+    aws_eks_cluster.main,
+    aws_eks_node_group.main,
+    aws_iam_role_policy_attachment.ebs_csi_driver_service_account_policy
+  ]
+  
+  tags = local.common_tags
+}
 # Node Group IAM Role
 resource "aws_iam_role" "eks_node_role" {
   name = "${local.name_prefix}eks-node-role"
@@ -326,8 +345,8 @@ resource "aws_eks_node_group" "main" {
   instance_types = ["t3.medium"]
   
   scaling_config {
-    desired_size = 3
-    max_size     = 4
+    desired_size = 4
+    max_size     = 6
     min_size     = 2
   }
 
@@ -355,13 +374,14 @@ resource "aws_eks_node_group" "main" {
 
 # Launch template for EKS nodes with IMDSv2 and encryption
 resource "aws_launch_template" "eks_nodes" {
+  # checkov:skip=CKV_AWS_341: "hop limit needs to be 2 in a container environment w/ IMDSv2 enabled. See: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-retrieval.html#imds-considerations"
   name = "${local.name_prefix}eks-node-template"
 
   # Enable IMDSv2
   metadata_options {
     http_endpoint               = "enabled"
     http_tokens                 = "required"  # Require IMDSv2
-    http_put_response_hop_limit = 1
+    http_put_response_hop_limit = 2
   }
 
   # Enable EBS encryption
