@@ -181,6 +181,3 @@ Chart.lock
 
 # Ignore Terraform outputs
 build/terraform-outputs.json
-
-# Ignore Helm values files
-k8s/helm/values/*
