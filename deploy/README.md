@@ -4,13 +4,10 @@ This directory contains deployment scripts for applications and gateways in the 
 
 ## Prerequisites
 
-### 1. OpenSearch Service Linked Role (New Accounts)
-If this is a new AWS account or you've never deployed OpenSearch before, you'll need to create the required service linked role before running the infrastructure deployment. See [DEPLOYMENT.md](../DEPLOYMENT.md) for the specific command to run.
-
-### 2. Infrastructure Deployment
+### 1. Infrastructure Deployment
 Ensure the Terraform infrastructure has been deployed first. See the main [DEPLOYMENT.md](../DEPLOYMENT.md) for infrastructure setup instructions.
 
-### 3. Cluster Essentials Bootstrap
+### 2. Cluster Essentials Bootstrap
 Before deploying applications, run the cluster essentials bootstrap:
 
 ```bash
@@ -127,7 +124,7 @@ The deployment scripts automatically generate an AWS configuration overlay with:
 - AWS Region
 - Stack Prefix
 
-This eliminates the need to hardcode AWS-specific values in your service configurations.
+This eliminates the need to hardcode AWS-specific values in your service configurations. The file is in the .gitignore to minimize the chance of accidentally commiting account ids. This also makes it reusable within a CI pipeline itself.
 
 ### Secret Management
 Services automatically pull configuration from AWS Parameter Store via the External Secrets Operator. Each service specifies which keys it needs in its values file:

@@ -15,6 +15,22 @@ if [ $# -eq 2 ] && [ "$2" = "--build" ]; then
     BUILD_CONTAINER=true
 fi
 
+# Create overlay file if it doesn't exist
+OVERLAY_FILE="k8s/helm/values/overlay/aws-overlay-values.yaml"
+if [ ! -f "$OVERLAY_FILE" ]; then
+    mkdir -p k8s/helm/values/overlay
+    
+    AWS_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+    AWS_REGION=$(aws configure get region)
+    
+    cat > "$OVERLAY_FILE" << EOF
+aws:
+  account: "$AWS_ACCOUNT"
+  region: "$AWS_REGION"
+  stackPrefix: "agent-ptfm"
+EOF
+fi
+
 # Build and push the container if requested
 if [ "$BUILD_CONTAINER" = true ]; then
     echo "Building and pushing container..."
