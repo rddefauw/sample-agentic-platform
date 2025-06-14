@@ -18,22 +18,20 @@ def configuration_server_middleware(app: FastAPI, path_prefix: str, excluded_pat
         path_prefix: The path prefix for the server. ALB sends the full path to the pod so we rewrite it in middleware.
         excluded_paths: The paths to exclude from our oAuth middleware.
     '''
+    # Adds the token and auth results to the context variable for access throughout the invocation.
+    app.add_middleware(RequestContextMiddleware)
+    # Auth results are stored in the request state.
+    app.add_middleware(AuthMiddleware, excluded_paths=excluded_paths)
+
+    # Converts things like /llm-gateway/model/llama3-70b/converse to /model/llama3-70b/converse
+    app.add_middleware(PathTransformMiddleware, path_prefix=path_prefix)
 
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"], # nosemgrep: wildcard-cors
-        allow_credentials=False,
-        allow_methods=["GET", "POST", "PUT", "DELETE"],
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type", "X-Service-ID"],
     )
 
-    # Makes local testing easier without auth.
-    if ENVIRONMENT != "local":
-        # Adds the token and auth results to the context variable for access throughout the invocation.
-        app.add_middleware(RequestContextMiddleware)
-        # Auth results are stored in the request state.
-        app.add_middleware(AuthMiddleware, excluded_paths=excluded_paths)
-
-    # Converts things like /llm-gateway/model/llama3-70b/converse to /model/llama3-70b/converse
-    app.add_middleware(PathTransformMiddleware, path_prefix=path_prefix)
     return app

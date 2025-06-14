@@ -96,6 +96,11 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if self.is_path_excluded(path):
             return await call_next(request)
         
+        # Skip authentication for OPTIONS requests (CORS preflight)
+        method = request.scope["method"]
+        if method == "OPTIONS":
+            return await call_next(request)
+        
         # Check that auth is properly configured
         self.check_auth_configuration()
         
