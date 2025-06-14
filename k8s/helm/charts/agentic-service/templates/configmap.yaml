@@ -6,6 +6,6 @@ metadata:
   labels:
     app: {{ include "app.name" . }}
 data:
-  {{- range $key, $value := .Values.config }}
+  {{- range $key, $value := .Values.configDefaults }}
   {{ $key }}: {{ $value | quote }}
   {{- end }}

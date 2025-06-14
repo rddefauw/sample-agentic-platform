@@ -1,325 +1,244 @@
 # Deploy Sample Agent Platform
-Here's a guide for deploying the sample agentic platform into an account.
 
-**Important Notice:** This project deploys resources in your AWS environment using Terraform. You will incur costs for the AWS resources used. Please be aware of the pricing for services like EKS, Bedrock, OpenSearch, DynamoDB, Elasticache, S3, etc.. in your AWS region.
+This guide covers deploying the sample agentic platform to AWS. The platform uses Terraform to create infrastructure and Kubernetes to deploy the applications.
 
-Required Permissions: You need elevated permissions, to deploy the Terraform stack.
+**Important Notice:** This project deploys resources in your AWS environment using Terraform. You will incur costs for the AWS resources used. Please be aware of the pricing for services like EKS, Bedrock, OpenSearch, DynamoDB, Elasticache, S3, etc.
+
+**Required Permissions:** You need elevated permissions to deploy the Terraform stack.
 
 ## Prerequisites
-1 You will need a service linked role for opensearch for the terraform to execute. Run the following command
+
+### 1. Required Tools
+- [Terraform using tfenv](https://github.com/tfutils/tfenv)
+- [AWS CLI & configuration](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
+- [SSM Plugin for AWS CLI](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html) (for port forwarding)
+- [uv](https://github.com/astral-sh/uv) for Python development
+- [Docker](https://docs.docker.com/engine/install/)
+- [kubectl](https://kubernetes.io/docs/tasks/tools/)
+
+### 2. OpenSearch Service-Linked Role
+Create the required service-linked role for OpenSearch:
 ```bash
-$ aws iam create-service-linked-role --aws-service-name opensearchservice.amazonaws.com
+aws iam create-service-linked-role --aws-service-name opensearchservice.amazonaws.com
 ```
-If it fails because it already exists, that's okay. We just need it present in the account.
+(If it already exists, that's fine - we just need it present)
 
-2 If you're using the bootstrap stack, you'll need to provide the name of the role you're using for the CICDRoleName parameter and a role for the FederatedRoleName parameter which will have access to the EKS console.
+## Installation
 
-## Create Infrastructure
+Clone the repository:
+```bash
+git clone https://github.com/aws-samples/sample-agentic-platform.git
+cd sample-agentic-platform
+```
 
-### Bootstrap Using CloudFormation
-The easiest way to deploy is to use the boostrap.yaml file we've provided in the bootstrap directory. You can follow the instructions in the bootstrap/README.md to deploy a bootstrap stack that will create an S3 bucket and DDB table to manage your terraform state.
+## Deployment Options
 
-To install on your own, follow the instructions below.
+### Option 1: Automated Bootstrap (Recommended)
 
-### Deploy Terraform On Your Own
-First create a terraform.tfvars file in the infrastructure/terraform directory like this:
+The easiest way to deploy is using our CloudFormation bootstrap templates that handle infrastructure, CI/CD, and cluster setup automatically.
+
+Follow the step-by-step instructions in [bootstrap/README.md](bootstrap/README.md):
+
+1. **Infrastructure Bootstrap**: Deploy Terraform infrastructure using CloudFormation
+2. **GitHub Bootstrap**: Set up CI/CD pipeline (optional)  
+3. **EKS Bootstrap**: Configure cluster essentials
+4. **Application Deployment**: Deploy agents and gateways
+
+### Option 2: Manual Deployment
+
+If you prefer to deploy manually or customize the deployment:
+
+#### 1. Infrastructure Deployment
+
+Create a `terraform.tfvars` file in the `infrastructure/terraform` directory:
 
 ```bash
-########################################################
-# Global Variables
-########################################################
-
 aws_region  = "us-west-2"
 environment = "dev"
 stack_name  = "agent-ptfm"
-
-########################################################
-# K8s console access role
-########################################################
-
-federated_role_name = "<YOUR ROLE TO ACCESS THE EKS CONSOLE>"
-
-########################################################
-# KMS Variables
-########################################################
-
-enable_kms_encryption = false  # Set to true if you want to enable KMS encryption
+federated_role_name = "<YOUR_ROLE_FOR_EKS_CONSOLE_ACCESS>"
+enable_kms_encryption = false
 kms_deletion_window   = 7
-kms_key_administrators = [
-  # Add ARNs of IAM users/roles that should administer the KMS key
-  # Example: "arn:aws:iam::123456789012:user/admin"
-]
 ```
 
-Once you have your variables set, we'll deploy the terraform stack into your environment. It will pick up your default aws credentials if deploying locally. Make sure you have elevated permissions to deploy the stack. 
-
-**Note**: The stack will fail if you deploy with an IAM user. There is a bug in opensearch terraform module that will duplicate your IAM user in a permission and fail. IAM users (generally) should never be used and are not considered best practice. Instead assume a role that has elevated permissions. Instructions can be found [here](https://repost.aws/knowledge-center/iam-assume-role-cli).
-
-Run the following commands.
-
+Deploy with Terraform:
 ```bash
-# Terraform init
+cd infrastructure/terraform
 terraform init
-
-# Terraform plan
 terraform plan
-
-# Terraform apply to deploy the stack
 terraform apply
 ```
 
-The entire stack takes about ~20 minutes to stand up everything.
+#### 2. Cluster Configuration
 
-## Running Postgres Migrations
-To run the migrations from a local machine, we'll need to port forward to Aurora's writer instance before we can run alembic migrations. To do that run the following commands:
-
-1 Find your management instance ID
+Set up cluster essentials:
 ```bash
-# This will give you the management instance ID
-aws ec2 describe-instances \
-  --filters "Name=tag:Name,Values=*bastion-instance*" \
-  --query "Reservations[].Instances[].InstanceId" \
-  --output text
+./bootstrap/eks-bootstrap.sh
 ```
 
-2. Find the master password (stored and rotated in SecretsManager)
+#### 3. Application Deployment
+
+Deploy core services and agents using the provided scripts:
 ```bash
-# Get the cluster identifier
-CLUSTER_ID=$(aws rds describe-db-clusters --query 'DBClusters[?contains(DBClusterIdentifier, `postgres`)].DBClusterIdentifier' --output text)
+# Deploy core services (gateways)
+./deploy/deploy-gateways.sh --build
 
-# Find the secret ARN for the master user
-SECRET_ARN=$(aws rds describe-db-clusters --db-cluster-identifier $CLUSTER_ID --query 'DBClusters[0].MasterUserSecret.SecretArn' --output text)
+# Deploy all agent applications  
+./deploy/deploy-all-agents.sh --build
 
-aws secretsmanager get-secret-value --secret-id $SECRET_ARN --query 'SecretString' --output text
+# Or deploy individual services
+./deploy/deploy-application.sh llm-gateway --build
 ```
 
-3. Create and update .env file in the project dir
+## Accessing the Private EKS Cluster
+
+Since the EKS cluster is private, you need to access it through the bastion host using SSM port forwarding. **Note:** You'll need the AWS SSM plugin installed for port forwarding to work.
+
+1. **Find your bastion instance ID:**
 ```bash
-ENVIRONMENT=local
-PG_DATABASE=postgres
-PG_USER=postgres
-PG_READ_ONLY_USER=postgres
-PG_PASSWORD=<ENTER HERE>
-PG_READ_ONLY_PASSWORD=<ENTER HERE AGAIN>
-PG_CONNECTION_URL=localhost
-```
-
-*Note*: If running the `alembic` step below fails because the `PG_DATABASE` variable is not set, use the `export VAR=value` format in the `env` file.
-
-
-4. Start port forwarding to the aurora writer endpoint on port 5432
-```bash
-# Port forward through SSM to the writer endpoint
-  aws ssm start-session \
-  --target i-INSTANCEID \
-  --document-name AWS-StartPortForwardingSessionToRemoteHost \
-  --parameters 'portNumber=5432,localPortNumber=5432,host=<CLUSTER's WRITER ENDPOINT>'
-```
-
-5. Run Migrations
-```bash
-alembic upgrade head
-```
-
-6. Close the port forward
-To make sure you don't accidently modify the aurora DB, close the connection. We'll be using the port forwarding in the next section to connect to our EKS cluster
-
-## Deploying Helm Chart
-This project uses Helm charts to deploy our agent endpoints to the EKS cluster. We've provided a number of build and deploy scripts to make things simpler. For local deployment you can run them individually on your machine as long as you have AWS access locally. In practice, deployment would look different. Either your CI/CD would run the builds for you, or you'd use a GitOps tool like ArgoCD or Flux.
-
-### Running individually on your local machine
-To get this running, we need to do a couple things. 
-
-#### Accessing the EKS Cluster
-Because the cluster is private (best practice), if you want to access it from either your local host or through the code-server running on the bastion host. In both cases, we'll have to use the bastion setup using AWS Systems Manager Agent (SSM Agent). Using SSM allows us to keep the bastion host in a private subnet but still connect to it using AWS IAM credentials.
-
-1 Find your management instance ID
-```bash
-# This will give you the management instance ID
 INSTANCE_ID=$(aws ec2 describe-instances \
   --filters "Name=tag:Name,Values=*bastion-instance*" "Name=instance-state-name,Values=running" \
   --query "Reservations[].Instances[].InstanceId" \
   --output text)
 ```
 
-2 Start port forwarding to the kubectl proxy on the bastion host.
+2. **Start port forwarding to kubectl proxy:**
 ```bash
-# Port forward through SSM to the kubectl proxy running on the management 
 aws ssm start-session \
   --target $INSTANCE_ID \
   --document-name AWS-StartPortForwardingSession \
   --parameters '{"portNumber":["8080"],"localPortNumber":["8080"]}'
 ```
 
-4 Configure kubectl to use the proxy (in a new terminal on your local machine)
+3. **Configure kubectl (in a new terminal):**
 ```bash
-# Add the new cluster and call it proxy
 kubectl config set-cluster eks-proxy --server=http://localhost:8080
-
-# Add the new user (empty in this case)
 kubectl config set-credentials eks-proxy-user
-
-# Add the new context
 kubectl config set-context eks-proxy --cluster=eks-proxy --user=eks-proxy-user
-
-# Switch to the new context
 kubectl config use-context eks-proxy
+```
 
-# Now try your command
+4. **Verify access:**
+```bash
 kubectl get nodes
 ```
 
-6 Run the following command to push containers to ecr and deploy helm chart.
+### Alternative: Using Code Server on Bastion Host
 
-**Note:**: 
+If you prefer not to set up local kubectl configuration, you can use the code server that's installed on the bastion host. This approach makes it easier to work with all the private resources since you're operating directly from within the VPC.
 
-This will expose a publically accessible application load balancer. To enable https, you will need a TLS certificate. If you already have a TLS certificate, you can skip this section.
+**Access Code Server:**
+```bash
+# Port forward to code server on the bastion host
+aws ssm start-session \
+  --target $INSTANCE_ID \
+  --document-name AWS-StartPortForwardingSession \
+  --parameters '{"portNumber":["8888"],"localPortNumber":["8888"]}'
+```
 
-However, if you don't have one and want to proceed with running this sample, you can generate a private certificate associated with a domain using the following openssl command:
+Then open `http://localhost:8888` in your web browser to access the code server running on the bastion host. From there, you can run all deployment commands, access kubectl directly, and work with the labs without needing local setup.
+
+## Database Setup
+
+### Running Database Migrations
+
+After the infrastructure is deployed and you have kubectl access configured (either locally or via code server), run the database migrations:
 
 ```bash
-openssl req \
-  -x509 -nodes -days 365 -sha256 \
-  -subj '/C=US/ST=Oregon/L=Portland/CN=*.elb.amazonaws.com' \
-  -newkey rsa:2048 -keyout key.pem -out cert.pem
-
-aws acm import-certificate --certificate fileb://cert.pem --private-key fileb://key.pem
+./deploy/run-migrations.sh
 ```
 
-You should obtain a TLS Certificate that has been validated by a certificate authority, import it into AWS Certificate Manager, and reference it when launching the AWS CloudFormation Stack.
+This script automatically:
+- Finds the bastion instance and database cluster
+- Retrieves credentials from AWS Secrets Manager
+- Sets up port forwarding through the bastion
+- Runs Alembic migrations
+- Cleans up automatically
 
-Once you've uploaded the cert, update the k8s/helm/charts/agentic-service/values.yaml file with your ssl.certificateArn value with the ARN you just created. This is a pre-requisite and the load balancer will not deploy without it.
+## Public Access with CloudFront
+
+By default, the load balancer ingress rules are configured to be private. If you'd like to expose endpoints publicly and enable HTTPS, you can create a CloudFront distribution and configure it to use the load balancer as a VPC origin once the cluster bootstrap script is run and the load balancer controller is up.
+
+AWS recently introduced [CloudFront VPC Origins](https://aws.amazon.com/blogs/networking-and-content-delivery/introducing-cloudfront-virtual-private-cloud-vpc-origins-shield-your-web-applications-from-public-internet/), which allows you to securely deliver content from applications hosted in private subnets without exposing them to the public internet. This approach provides several benefits:
+
+- **Enhanced Security**: Applications remain in private subnets with CloudFront as the sole ingress point
+- **Reduced Attack Surface**: Prevents users from bypassing CloudFront to access applications directly  
+- **High Performance**: Traffic stays on the AWS backbone network for optimized performance
+- **Built-in Security**: Integrates with AWS WAF and AWS Shield Advanced for additional protection
+
+To set this up, create a CloudFront distribution in the AWS console and configure your Application Load Balancer as a VPC origin after deployment is complete.
+
+## Testing the Deployment
+
+### Create Test User and Generate Token
 
 ```bash
-# Make all scripts in the deploy directory executable
-chmod +x deploy/*.sh
-chmod +x deploy/
+# Create test user
+uv run python script/create_test_user.py --user-pool-id <from_tf_output> --email <email> --password "password"
 
-# Run the core services deployment script
-. ./deploy/deploy-core-services.sh
-
-# Deploy all the agents.
-. ./deploy/deploy-all-agents.sh
+# Generate auth token
+uv run python script/get_auth_token.py --username 'user' --password 'password' --client-id <from_tf_output>
 ```
 
-Optionally, you can deploy an individual agent by running
+### Test API Endpoints
+
+You can test the deployed services either through the load balancer (internet-facing) or via local port forwarding:
+
 ```bash
-. ./deploy/deploy-agent <name>
-```
-
-Where name corresponds to the service name. Each agent has a corresponding dockerfile that's configured to setup and deploy the agent. If you'd like to add a new agent, create another dockerfile that builds your agent code from source, add it to the list of available services in build-container.sh under VALID_SERVICES and deploy it using the script above.
-
-#### Testing an agent
-
-If you deploy the `langgraph-chat` chart, you'll have the service running on your EKS cluster. To test it, you'll need a JWT token. We've provided a script to create new users and generate tokens.
-
-```
-uv run python script/create_test_user.py --user-pool-id <get from TF output> --email <email> --password "password"
-```
-
-Now generate a token:
-
-```
-uv run python script/get_auth_token.py --username 'user' --password 'password' --client-id <get from TF output>
-```
-
-You need to set up a proxy to get to the service port.
-
-```
+# Port forward to a specific service
 kubectl port-forward svc/langgraph-chat 8090:80
+
+# Test the chat endpoint
+curl -X POST http://localhost:8090/chat \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "hello"}'
 ```
 
-Now you can invoke the `chat` endpoint using curl or your favorite API client. 
+## Running Code Locally
 
-* The IP address is `http://localhost:8090/chat`.
-* Add a header called `Authorization` and set it to `Bearer <token>`.
-* Set the body to a JSON document with a field called `message` that has your prompt.
-
-#### Call the load balancer
-The load balancer is internet facing. You can pull the DNS name from the load balancer and execute requests using the oAuth token generated above. We've provided some sample requests to help you get started
-
-##### Call Retrieval Gateway
-```javascript
-POST <lb-domain>/retrieval-gateway/retrieve
-{
-    "vectorsearch_request": {
-        "query": "Tell me something about open search"
-    }
-}
-```
-
-##### Call LLM Gateway
-```javascript
-POST <lb-domain>/llm-gateway/model/us.anthropic.claude-3-5-haiku-20241022-v1:0/converse
-{
-    "system": [{"text": "You are a helpful assistant."}],
-    "messages": [{"role": "user", "content": [{"text": "Write a poem for me"}]}]
-}
-```
-
-##### Call Memory Gateway
-Note, if this fails, it's likely because you haven't run the migrations on the database described above.
-```javascript
-POST <lb-domain>/memory-gateway/memory-gateway/get-session-context
-{
-    "session_id": "e8f9a2d1-6b3c-4d7e-9f8e-1a2b3c4d5e6f"
-}
-```
-
-##### LangGraph Chat
-Note, if this fails, it's likely because you haven't run the migrations on the database described above.
-```javascript
-POST <lb-domain>/langgraph-chat/chat
-{
-    "message": "hello"
-}
-```
-
-##### Pydantic AI Agent
-Note, if this fails, it's likely because you haven't run the migrations on the database described above.
-```javascript
-POST <lb-domain>/pydanticai-agent/invoke
-{
-    "text": "hello"
-}
-```
-
-
-
-## Deploy OTEL collectors
-The otel collectors are CRDs from the ADOT EKS plugin defined in eks.tf terraform. They get deployed in the deploy-core-services.sh file. If you'd like to point them at a different source, there are instructions in the readme of the helm chart.
-
-With the collectors provided, will see log and metrics entries in CloudWatch and traces in X-Ray.
-
-# Run Code Locally
-
-## Pre-Reqs:
-* Have Docker installed
-* Have the AWS CLI installed
-
-To run code locally, we've provided a docker-compose.yaml file containing some of the dependencies like Valkey and Postgres. To use them you run the docker command in the project root. 
-```bash
-$ docker compose -f docker-compose.yaml up -d
-```
-
-To run the servers you can either (a) use the build-container script and run them locally, or (b) run the servers directly using uvicorn. We've provided a Makefile that can spin up the containers using uv.
+For local development, use the provided Docker Compose setup:
 
 ```bash
+# Start local dependencies
+docker compose up -d
+
+# Run specific services
 make langgraph-chat
 ```
 
-# Teardown
-To tear down the project, you need to remove the delection protection on the Aurora DB and ensure you load balancer (contolled by K8s is shut down). 
+## Observability
 
-Run this on the bastion host or wherever you deployed helm from. Alternatively you can just delete it from the console. 
+The platform includes comprehensive observability:
+- **Traces**: AWS X-Ray or LangFuse
+- **Metrics**: CloudWatch  
+- **Logs**: OpenSearch
+
+OpenTelemetry collectors are deployed via the bootstrap scripts and configured to send telemetry data to these AWS services.
+
+## Teardown
+
+To clean up resources:
+
+1. **Remove Kubernetes resources:**
 ```bash
 helm uninstall lb-controller
 ```
 
-## Force deletion of Aurora DB.
-Run this command to change your terraform state
+2. **Remove deletion protection from Aurora:**
 ```bash
 terraform apply -auto-approve -var="postgres_deletion_protection=false" -target=aws_rds_cluster.postgres
 ```
 
-Afterwards, you will be able to tear down the resources. 
+3. **Destroy infrastructure:**
+```bash
+terraform destroy
+```
+
+## Troubleshooting
+
+- **Database connection issues**: Ensure migrations have been run using `./deploy/run-migrations.sh`
+- **Pod access issues**: Verify kubectl is configured with port forwarding to the bastion host
+- **Permission issues**: Verify your IAM role has sufficient permissions for EKS and other AWS services
+
+For more detailed troubleshooting, see the individual README files in the `bootstrap/`, `deploy/`, and `labs/` directories.

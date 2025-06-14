@@ -3,43 +3,31 @@
 # Check if container type is provided
 if [ $# -ne 1 ]; then
     echo "Usage: $0 <service-name>"
-    echo "Available services: langgraph-chat, optimizer-workflow, mcp-tool-server, llm-gateway"
+    echo "Available services are directories in the docker/ folder"
     exit 1
 fi
 
 SERVICE_NAME="$1"
 
-# Define valid services in an array
-VALID_SERVICES=(
-    "langgraph-chat"
-    "prompt-chaining"
-    "routing"
-    "parallelization"
-    "orchestrator"
-    "evaluator-optimizer"
-    "llm-gateway"
-    "memory-gateway"
-    "retrieval-gateway"
-    "diy-agent"
-    "pydanticai-agent"
-)
-
-# Check if service name is in the array
-VALID=0
-for svc in "${VALID_SERVICES[@]}"; do
-    if [ "$SERVICE_NAME" = "$svc" ]; then
-        VALID=1
-        break
-    fi
-done
-
-if [ "$VALID" -eq 0 ]; then
-    echo "Invalid service name. Please use one of the following: ${VALID_SERVICES[*]}"
-    exit 0
-fi
-
 # Move to project root
 cd "$(dirname "$0")/.."
+
+# Check if docker directory exists for the service
+DOCKER_DIR="docker/${SERVICE_NAME}"
+DOCKERFILE_PATH="${DOCKER_DIR}/Dockerfile"
+
+if [[ ! -d "$DOCKER_DIR" ]]; then
+    echo "Error: Docker directory not found at $DOCKER_DIR"
+    echo "Available services:"
+    ls -1 docker/ 2>/dev/null | grep -v "^$" || echo "  No services found in docker/ directory"
+    exit 1
+fi
+
+# Check if Dockerfile exists
+if [[ ! -f "$DOCKERFILE_PATH" ]]; then
+    echo "Error: Dockerfile not found at $DOCKERFILE_PATH"
+    exit 1
+fi
 
 # Configuration - handle both local and CI environments
 if [[ -n "$AWS_REGION" ]]; then
@@ -108,15 +96,6 @@ if ! aws ecr describe-repositories --repository-names "$ECR_REPO_NAME" --region 
     echo "Repository $ECR_REPO_NAME created successfully"
 else
     echo "Repository $ECR_REPO_NAME already exists"
-fi
-
-# Determine Dockerfile path based on service name
-DOCKERFILE_PATH="docker/${SERVICE_NAME}/Dockerfile"
-
-# Check if Dockerfile exists
-if [[ ! -f "$DOCKERFILE_PATH" ]]; then
-    echo "Error: Dockerfile not found at $DOCKERFILE_PATH"
-    exit 1
 fi
 
 # Build Docker image

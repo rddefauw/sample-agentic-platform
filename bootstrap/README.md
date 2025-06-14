@@ -26,6 +26,14 @@ To get started, you can run this cloudformation by (1) Deploying from your compu
 
 We've intentionally left out the CI/CD role creation in the bootstrap template to give flexibility to the implementor on how they want to configure that role. The role needs elevated priviledges to deploy the terraform infrastructure. You can use tools like AWS IAM Access Analyzer or projects like Role Vending Machine [here](https://github.com/aws-samples/role-vending-machine) to help you create a role with the appropriate permissions.
 
+4. Create OpenSearch Service linked role
+If this is a new account or you've never stood up opensearch, you need to create a service linked role before deploying the stack.
+
+```bash
+aws iam create-service-linked-role --aws-service-name opensearchservice.amazonaws.com
+```
+(If it already exists, that's fine - we just need it present)
+
 
 #### Deploying from computer
 To deploy from your computer, run the following command in the sample-agentic-platform/bootstrap directory. Make sure to replace your FederatedRoleName parameter with the role you're using. 
@@ -106,61 +114,33 @@ Lastly, we need to trigger the code pipeline. Navigate to .github/workflows/ecr-
 And that's it! We've completed the "CI" part of our "CI/CD" pipeline.
 
 
-# Bootstrapping EKS
-Lastly, we'll need to install ArgoCD onto the cluster and give it our git permissions so it can sync our applications. We'll need 
-* Our git repository, 
-* username, 
-* and access token
+# 3 Bootstrapping EKS
+Lastly, we'll need to setup our cluster with the components that don't change often like the load balancer controller, secrets operator, and storage configuration.
 
-To get an access token. You can follow the instructions to create one [here](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens). Make sure to limit the scope of the token to only the repository we just created. 
-
-Now we'll need to execute the eks-bootstrap.sh script.
-
-**Note**: Remember to keep your SSM port forward open if you're running this on your local machine. If you're running this on the bastion then you're all set. 
+**Note:** If you are executing this script locally, make sure you're port forwarding through the bastion host like described in DEPLOYMENT.md. If you're already on the bastion host, you can run these directly.
 
 ```bash
-GIT_REPO="https://github.com/your/repo.git"
-GIT_USERNAME="youruser"
-GIT_PASSWORD="yourtoken"
+# Make the script executable
+chmod +x ./bootstrap/eks-bootstrap.sh 
 
-. ./bootstrap/eks-bootstrap.sh \
-  --git-repo "$GIT_REPO" \
-  --git-username "$GIT_USERNAME" \
-  --git-password "$GIT_PASSWORD"
+# Deploy the clusters essentials via helm
+. ./bootstrap/eks-bootstrap.sh
 ```
 
-Great! Now we have Argo installed. To see our deployed application port forward to the argocd server. If you're running this on your laptop, make sure to have the SSM port forward open. 
+And that's it. 
 
-1 Find your bastion instance ID
-```bash
-# This will give you the management instance ID
-INSTANCE_ID=$(aws ec2 describe-instances \
-  --filters "Name=tag:Name,Values=*bastion-instance*" "Name=instance-state-name,Values=running" \
-  --query "Reservations[].Instances[].InstanceId" \
-  --output text)
-```
+# 4 (Optional) Enable LangFuse. 
+Langfuse is an open source llm engineering platform that can be deployed in kubernetes. For this simple, it also provides an additional location to send traces to demonstrate the power of using open telemetry. Without changing your code, you can send your traces to any backend. 
 
-2 Start port forwarding to the kubectl proxy on the bastion host.
-```bash
-# Port forward through SSM to the kubectl proxy running on the management 
-aws ssm start-session \
-  --target $INSTANCE_ID \
-  --document-name AWS-StartPortForwardingSession \
-  --parameters '{"portNumber":["8080"],"localPortNumber":["8080"]}'
-```
-
-3 Port forward again to the argocd server.
-```bash
-kubectl port-forward svc/argocd-server -n argocd 8081:443
-```
-
-Then go to your local browser at port 8081: https://localhost:8081/ 
-
- Now you'll need to get your admin password which is outputted in the bootstrap script. You can also retrieve it with the command below.
+To install langfuse, run the following commands below (Make sure your port forwarding if your deploying locally)
 
 ```bash
-kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+# Make the script executable
+chmod +x ./bootstrap/langfuse-bootstrap.sh 
+
+# Deploy the clusters essentials via helm
+. ./bootstrap/langfuse-bootstrap.sh 
 ```
 
-And that's it. We've set up the blueprint, created a CI/CD pipeline, and deployed our agents. When you want to build another agent, you just need to create the docker file & code then git push and our CI/CD pipeline will automatically deploy it.
-
+# Conclusion
+After following this readme, you should have the stack deployed, github setup (if you want a CI), and your K8s cluster configured with all the essentials to start deploying your agentic systems. 

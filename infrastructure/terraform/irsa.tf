@@ -487,7 +487,7 @@ resource "aws_iam_role" "external_secrets_role" {
         Action = "sts:AssumeRoleWithWebIdentity"
         Condition = {
           StringEquals = {
-            "${replace(aws_eks_cluster.main.identity[0].oidc[0].issuer, "https://", "")}:sub": "system:serviceaccount:default:external-secrets-sa"
+            "${replace(aws_eks_cluster.main.identity[0].oidc[0].issuer, "https://", "")}:sub": "system:serviceaccount:external-secrets-system:external-secrets-sa"
           }
         }
       }

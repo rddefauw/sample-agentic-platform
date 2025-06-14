@@ -1,9 +1,17 @@
-# AWS SSM Parameter Store for configuration.
-# Since the cluster doesn't have public access & the bastion / VPC gets created with the cluster,
-# we opted to store the outputs we need in parameter store (just configs, no secrets) and use an external secrets operator (ESO)
-# which is managed by Argo to pull it down into the cluster when the user finishes the Argo bootstrap. 
-# Without this approach, there's a chicken / egg problem since we can't install the secret 
-# via terraform directly (no public endpoint & no VPC / bastion to run the command from.)
+# AWS SSM Parameter Store for configuration values.
+# 
+# This approach solves a chicken-and-egg problem: we want the entire stack to deploy 
+# in one Terraform run for this example, but the EKS cluster API is private and we're 
+# deploying from outside the VPC. We can't deploy directly to the cluster during initial 
+# creation since Terraform can't reach the private API endpoint.
+#
+# Solution: Store configuration in Parameter Store, then use External Secrets Operator (ESO) 
+# to pull these values into the cluster as a ConfigMap after everything is running.
+#
+# Note: In practice, the VPC would likely have been set up beforehand, making it possible 
+# to use the Helm Terraform provider to deploy this directly as a ConfigMap instead which would be a better solution.
+#
+# For sensitive data (passwords, API keys, etc.), use AWS Secrets Manager instead.
 
 locals {
   # Common tags for all parameters

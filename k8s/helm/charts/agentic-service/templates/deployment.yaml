@@ -20,7 +20,7 @@ spec:
       serviceAccountName: {{ .Values.serviceAccount.name }}
       containers:
         - name: {{ .Chart.Name }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default "latest" }}"
+          image: "{{ include "app.image" . }}"
           imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
           ports:
             - containerPort: {{ .Values.service.targetPort | default 8000 }}
@@ -30,6 +30,13 @@ spec:
           env:
             - name: PYTHONPATH
               value: /app
+            {{- range .Values.configKeys }}
+            - name: {{ . }}
+              valueFrom:
+                secretKeyRef:
+                  name: agentic-platform-config
+                  key: {{ . }}
+            {{- end }}
           # Simple health checks that work reliably
           livenessProbe:
             httpGet:

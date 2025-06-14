@@ -4,7 +4,7 @@ NAMESPACE="langfuse"
 RELEASE_NAME="langfuse"
 CHART_REPO="langfuse"
 CHART_NAME="langfuse/langfuse"
-VALUES_FILE="k8s/helm/values/langfuse-values.yaml"
+VALUES_FILE="k8s/helm/values/optional/langfuse-values.yaml"
 
 # Colors for output
 RED='\033[0;31m'

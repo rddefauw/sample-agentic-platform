@@ -1,4 +1,4 @@
-# Default values for langraph-chat.
+# Default values for memory-gateway.
 # This is a YAML-formatted file.
 
 # Specify the namespace where this service will be deployed
@@ -8,18 +8,18 @@ namespace: "default"
 # Replica count for scaling
 replicaCount: 1
 
+# These values will be pulled from an overlay file. 
 aws:
   region: ""
   account: ""
 
-# Container image
 image:
-  repository: ""
+  repository: "agentic-platform-memory-gateway"
   tag: latest
   pullPolicy: Always
 
-nameOverride: ""
-fullnameOverride: ""
+nameOverride: "memory-gateway"
+fullnameOverride: "memory-gateway"
 
 service:
   type: ClusterIP
@@ -40,24 +40,26 @@ resources:
 
 # Ingress configuration
 ingress:
-  enabled: false
-  path: ""
+  enabled: true
+  path: "/memory-gateway"
 
 # Service account for permissions
 serviceAccount:
-  name: ""
+  name: "memory-gateway-sa"
   create: true
-
+  irsaRoleName: "memory-gateway-role"  # Role name without prefix
 
 # Specify which keys this service needs from the central config
 configKeys:
-  - AWS_DEFAULT_REGION
+  - PG_WRITER_ENDPOINT
+  - PG_READER_ENDPOINT
+  - PG_PORT
+  - PG_DATABASE
+  - PG_USER
+  - PG_READ_ONLY_USER
+  - PG_PASSWORD_SECRET_ARN
+  - COGNITO_USER_POOL_ID
   - COGNITO_USER_CLIENT_ID
   - COGNITO_M2M_CLIENT_ID
-  - COGNITO_USER_POOL_ID
-
-# Default values if keys aren't found in central config
-configDefaults:
-  LLM_GATEWAY_ENDPOINT: "http://llm-gateway.default.svc.cluster.local:80"
-  RETRIEVAL_GATEWAY_ENDPOINT: "http://retrieval-gateway.default.svc.cluster.local:80"
-  MEMORY_GATEWAY_ENDPOINT: "http://memory-gateway.default.svc.cluster.local:80"
+  - AWS_DEFAULT_REGION
+  - ENVIRONMENT

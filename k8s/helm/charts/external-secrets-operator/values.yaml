@@ -2,7 +2,7 @@
 
 # Namespace for the service account
 # namespace: external-secrets-system
-namespace: default
+namespace: external-secrets-system
 
 # Environment (dev, staging, prod)
 environment: dev  # Will be overridden by ArgoCD
@@ -11,6 +11,7 @@ serviceAccount:
   create: true
   name: 'external-secrets-sa'
   roleArn: '' # Dynamically created from the bootstrap EKS annotations
+  namespace: external-secrets-system
 
 # AWS configuration
 aws:
