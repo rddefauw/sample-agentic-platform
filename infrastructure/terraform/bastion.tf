@@ -170,8 +170,23 @@ resource "aws_instance" "bastion" {
     # Install required packages
     apt-get install -y unzip curl jq git python3-pip python3-venv python3-dev
 
-    # Install Node
-    apt-get install -y nodejs npm
+    # Install NVM
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+    export NVM_DIR="$HOME/.nvm"
+    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+    # Install Node.js v23.9.0 (same as your laptop)
+    nvm install 23.9.0
+    nvm use 23.9.0
+    nvm alias default 23.9.0
+
+    # Make available system-wide
+    ln -sf "$NVM_DIR/versions/node/v23.9.0/bin/node" /usr/local/bin/node
+    ln -sf "$NVM_DIR/versions/node/v23.9.0/bin/npm" /usr/local/bin/npm
+    ln -sf "$NVM_DIR/versions/node/v23.9.0/bin/npx" /usr/local/bin/npx
+
+    # Verify
+    /usr/local/bin/node --version
 
     # Set compiler environment variables in ubuntu user's profile
     cat >> /home/ubuntu/.profile << 'PROFILEEOF'
@@ -189,6 +204,7 @@ resource "aws_instance" "bastion" {
 
     # Install Helm
     snap install helm --classic
+
 
     # Install kubectl
     curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
@@ -358,8 +374,8 @@ resource "aws_iam_policy" "secrets_manager_bastion_policy" {
           aws_rds_cluster.postgres.master_user_secret[0].secret_arn,
           # Redis auth secret
           aws_secretsmanager_secret.redis_auth.arn,
-          # M2M credentials secret - using a wildcard to catch the m2m-credentials suffix
-          "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:${local.name_prefix}*m2m-credentials*"
+          # M2M credentials secret - reference the actual secret resource
+          aws_secretsmanager_secret.m2m_credentials.arn  # Replace with your actual secret resource name
         ]
       }
     ]
@@ -492,5 +508,11 @@ resource "aws_iam_policy" "ecr_bastion_policy" {
 # Attach the ECR policy to the bastion role
 resource "aws_iam_role_policy_attachment" "bastion_ecr_attachment" {
   policy_arn = aws_iam_policy.ecr_bastion_policy.arn
+  role       = aws_iam_role.bastion_role.name
+}
+
+# Attach AWS managed ELB read-only policy to the code server role
+resource "aws_iam_role_policy_attachment" "bastion_elb_readonly_attachment" {
+  policy_arn = "arn:aws:iam::aws:policy/ElasticLoadBalancingReadOnly"
   role       = aws_iam_role.bastion_role.name
 }

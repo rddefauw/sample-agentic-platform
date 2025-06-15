@@ -3,7 +3,7 @@ name = "agentic-program-technical-assets"
 version = "0.1.0"
 description = "Technical assets for the Agentic Program. This is a top level pyproject to make development easier"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = "==3.12.8"
 # Keep only truly core dependencies here that every part of your project needs
 dependencies = [
     "boto3>=1.37.13",

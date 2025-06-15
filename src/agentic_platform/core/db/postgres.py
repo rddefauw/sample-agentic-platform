@@ -1,6 +1,6 @@
 import os
 import boto3
-from sqlalchemy import Engine, create_engine
+from sqlalchemy import Engine, create_engine, event
 import urllib.parse
 from enum import Enum, auto
 from dataclasses import dataclass
@@ -151,23 +151,37 @@ class PostgresDB:
         )
     
     def _create_aurora_engine(self, is_writer: bool) -> Engine:
-        """Create engine for Aurora using IAM authentication"""
+        """Create engine for Aurora using IAM authentication with do_connect event"""
         user = self.config.writer_user if is_writer else self.config.reader_user
         host = self.config.writer_endpoint if is_writer else self.config.reader_endpoint
         
         try:
-            # Generate IAM token for authentication
-            token = self._get_iam_token(user, host)
-            connection_string = f"postgresql://{user}:{urllib.parse.quote(token)}@{host}/{self.config.database}?sslmode=require"
-            
-            return create_engine(
-                connection_string,
+            # Create engine with minimal connection string - parameters set by event
+            engine = create_engine(
+                "postgresql:///",  # Empty connection string
                 pool_size=self.config.pool_size,
                 max_overflow=self.config.max_overflow,
                 pool_pre_ping=True,
-                pool_recycle=self.config.token_refresh_seconds,  # Refresh before token expires
+                pool_recycle=self.config.token_refresh_seconds,
                 connect_args=self._DEFAULT_CONNECT_ARGS
             )
+            
+            # Event listener to provide fresh connection parameters including token
+            @event.listens_for(engine, "do_connect")
+            def provide_token(dialect, conn_rec, cargs, cparams):
+                # Generate fresh token for each connection
+                token = self._get_iam_token(user, host)
+                
+                # Set all connection parameters
+                cparams['host'] = host
+                cparams['port'] = 5432
+                cparams['user'] = user
+                cparams['password'] = token
+                cparams['database'] = self.config.database
+                cparams['sslmode'] = 'require'
+            
+            return engine
+            
         except Exception as e:
             raise RuntimeError(f"Failed to create Aurora database engine: {str(e)}") from e
     
