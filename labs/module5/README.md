@@ -1,7 +1,7 @@
 # Module 5: Production Infrastructure for Agentic Systems
 
 ## Introduction
-Module 5 focuses on building robust, production-ready agentic platforms with advanced infrastructure components. You'll learn how to implement telemetry, observability, memory systems, and evaluation frameworks essential for running agents in production environments.
+Module 5 focuses on building robust, production-ready agentic platforms with advanced infrastructure components. You'll learn how to implement telemetry, observability, and evaluation frameworks essential for running agents in production environments.
 
 ## Prerequisites
 **⚠️ IMPORTANT:** The stack needs to be deployed in order to run Module 5 notebooks. Many notebooks in this module call APIs and use assets that live in the deployed AWS infrastructure stack. Please complete the infrastructure deployment steps before attempting to run these notebooks.
@@ -31,17 +31,14 @@ Before starting, make sure to:
 - Building usage plans and request tracking
 - Multi-tenant LLM request management
 
-### 3. Memory Gateway
-- Developing a persistent memory system with PostgreSQL
-- Vector storage for semantic retrieval
-- Session context management
-- Long-term memory for agents
-
-### 4. Agent Evaluation
+### 3. Agent Evaluation
 - Building evaluation frameworks for agent performance
 - Creating test cases and assertions
 - Measuring success rates and efficiency metrics
 - Using LLM judges for qualitative evaluation
+
+### 3. Streaming
+- Generating server sent events for streaming traces back.
 
 ## Working with the Deployed Stack
 Many components in this module interact with deployed infrastructure:
