@@ -270,9 +270,11 @@ resource "aws_cognito_user_pool_client" "m2m_client" {
 resource "aws_secretsmanager_secret" "m2m_credentials" {
   # checkov:skip=CKV2_AWS_57: As a sample, its a bit heavy handed to rotate the secret. This is called out in the readme. 
   # checkov:skip=CKV_AWS_149: KMS key is conditionally used based on var.enable_kms_encryption
-  name        = "${local.name_prefix}m2m-credentials-${local.suffix}"
-  description = "Machine-to-machine client credentials for service auth"
-  kms_key_id  = var.enable_kms_encryption ? aws_kms_key.main[0].arn : null
+  name                    = "${local.name_prefix}m2mcreds-${local.suffix}"
+  description             = "Machine-to-machine client credentials for service auth"
+  kms_key_id              = var.enable_kms_encryption ? aws_kms_key.main[0].arn : null
+  recovery_window_in_days = 0  # Allow immediate deletion without waiting period
+  force_overwrite_replica_secret = true  # Allow overwriting if secret exists
   
   tags = local.common_tags
 }

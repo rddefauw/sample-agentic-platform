@@ -158,7 +158,8 @@ resource "aws_instance" "bastion" {
    }
   
   # Updated user data for Ubuntu with code-server and kubectl proxy
-    user_data = <<-EOF
+  user_data_replace_on_change = true
+  user_data = <<-EOF
     #!/bin/bash
     
     # Update package lists
@@ -232,6 +233,7 @@ resource "aws_instance" "bastion" {
 
     # Add uv environment to .bashrc for auto-loading
     su - ubuntu -c 'echo "source \$HOME/.local/bin/env" >> $HOME/.bashrc'
+    
 
     # Git clone the sample repository
     su - ubuntu -c "git clone https://github.com/aws-samples/sample-agentic-platform.git"
