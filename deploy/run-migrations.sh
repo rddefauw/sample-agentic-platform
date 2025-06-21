@@ -27,28 +27,38 @@ fi
 
 echo "✅ Found bastion instance: $INSTANCE_ID"
 
-# Get database cluster information
-echo "🔍 Getting database cluster information..."
-CLUSTER_ID=$(aws rds describe-db-clusters --query 'DBClusters[?contains(DBClusterIdentifier, `postgres`)].DBClusterIdentifier' --output text)
+# Get database information from Parameter Store
+echo "🔍 Getting database information from Parameter Store..."
 
-if [ -z "$CLUSTER_ID" ]; then
-    echo "❌ Error: Could not find PostgreSQL cluster"
+# Determine environment (default to 'dev' if not set)
+ENVIRONMENT=${ENVIRONMENT:-dev}
+PARAMETER_PATH="/agentic-platform/config/${ENVIRONMENT}"
+
+# Get all configuration from parameter store
+CONFIG_JSON=$(aws ssm get-parameter --name "$PARAMETER_PATH" --query 'Parameter.Value' --output text)
+
+if [ -z "$CONFIG_JSON" ]; then
+    echo "❌ Error: Could not retrieve configuration from Parameter Store at path: $PARAMETER_PATH"
     exit 1
 fi
 
-# Get the writer endpoint
-WRITER_ENDPOINT=$(aws rds describe-db-clusters --db-cluster-identifier $CLUSTER_ID --query 'DBClusters[0].Endpoint' --output text)
+# Extract database information from the JSON
+WRITER_ENDPOINT=$(echo $CONFIG_JSON | jq -r '.PG_WRITER_ENDPOINT')
+SECRET_ARN=$(echo $CONFIG_JSON | jq -r '.PG_PASSWORD_SECRET_ARN')
+DB_USERNAME=$(echo $CONFIG_JSON | jq -r '.POSTGRES_MASTER_USERNAME')
+CLUSTER_ID=$(echo $CONFIG_JSON | jq -r '.POSTGRES_CLUSTER_ID')
+PG_DATABASE=$(echo $CONFIG_JSON | jq -r '.PG_DATABASE')
 
 # Get the master password from Secrets Manager
-echo "🔍 Retrieving database credentials..."
-SECRET_ARN=$(aws rds describe-db-clusters --db-cluster-identifier $CLUSTER_ID --query 'DBClusters[0].MasterUserSecret.SecretArn' --output text)
+echo "🔍 Retrieving database credentials from Secrets Manager..."
 DB_CREDENTIALS=$(aws secretsmanager get-secret-value --secret-id $SECRET_ARN --query 'SecretString' --output text)
 DB_PASSWORD=$(echo $DB_CREDENTIALS | jq -r '.password')
-DB_USERNAME=$(echo $DB_CREDENTIALS | jq -r '.username')
 
-echo "✅ Database information retrieved"
+echo "✅ Database information retrieved from Parameter Store"
 echo "   Cluster: $CLUSTER_ID"
 echo "   Endpoint: $WRITER_ENDPOINT"
+echo "   Username: $DB_USERNAME"
+echo "   Database: $PG_DATABASE"
 
 # Start port forwarding in background
 echo "🚀 Starting port forwarding to database..."
@@ -90,7 +100,7 @@ echo "✅ Database connection established"
 
 # Set environment variables for alembic (no file creation)
 export ENVIRONMENT=local
-export PG_DATABASE=postgres
+export PG_DATABASE=$PG_DATABASE
 export PG_USER=$DB_USERNAME
 export PG_READ_ONLY_USER=$DB_USERNAME
 export PG_PASSWORD=$DB_PASSWORD
@@ -104,4 +114,4 @@ alembic upgrade head
 echo ""
 echo "========================================="
 echo "✅ Database migrations completed!"
-echo "=========================================" 
+echo "========================================="
