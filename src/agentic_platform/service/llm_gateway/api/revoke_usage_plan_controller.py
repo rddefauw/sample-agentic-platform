@@ -3,9 +3,9 @@ from agentic_platform.service.llm_gateway.client.usage_plan_client import UsageP
 
 class RevokeUsagePlanController:
 
-    @classmethod
-    def revoke_usage_plan(cls, request: RevokeUsagePlanRequest) -> RevokeUsagePlanResponse:
+    @staticmethod
+    async def revoke_usage_plan(request: RevokeUsagePlanRequest) -> RevokeUsagePlanResponse:
         # Revoke the key.
-        response: bool = UsagePlanClient.revoke_usage_plan(request.entity_id, request.entity_type)
+        response: bool = await UsagePlanClient.revoke_usage_plan(request.entity_id, request.entity_type)
         # Return the response.
         return RevokeUsagePlanResponse(success=response)

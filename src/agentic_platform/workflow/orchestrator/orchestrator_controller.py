@@ -1,5 +1,6 @@
-from agentic_platform.core.models.api_models import SearchWorkflowRequest, SearchWorkflowResponse
+from agentic_platform.core.models.api_models import AgenticRequest, AgenticResponse
 from agentic_platform.workflow.orchestrator.orchestrator_workflow import OrchestratorSearchWorkflow
+from agentic_platform.core.models.memory_models import Message
 import uuid
 
 # Instantiate the chat service so we don't recreate the graph on each request.
@@ -8,14 +9,22 @@ search_workflow = OrchestratorSearchWorkflow()
 class OrchestratorSearchWorkflowController:
 
     @staticmethod
-    def search(request: SearchWorkflowRequest) -> SearchWorkflowResponse:
+    def search(request: AgenticRequest) -> AgenticResponse:
         """
-        Search with the LangGraph search workflow. 
+        Search with the LangGraph orchestrator workflow. 
         """
-        response: str = search_workflow.run(request.query)
+        # Get the latest user text from the request
+        user_text = request.latest_user_text
+        if not user_text:
+            user_text = "Hello"  # Default fallback
         
-        # Return the chat response object to the server.
-        return SearchWorkflowResponse(
-            response=response,
-            conversationId=str(uuid.uuid4())
+        response_text: str = search_workflow.run(user_text)
+        
+        # Create response message
+        response_message = Message.from_text("assistant", response_text)
+        
+        # Return the agent response
+        return AgenticResponse(
+            message=response_message,
+            session_id=request.session_id
         )

@@ -4,7 +4,7 @@ import re
 
 from agentic_platform.core.models.memory_models import Message
 from agentic_platform.core.models.prompt_models import BasePrompt
-from agentic_platform.core.models.api_models import ChatRequest, ChatResponse
+from agentic_platform.core.models.api_models import AgenticRequest, AgenticResponse
 
 from agentic_platform.chat.langgraph_chat.chat_workflow import LangGraphChat
 from agentic_platform.chat.langgraph_chat.chat_prompt import ChatPrompt
@@ -20,7 +20,7 @@ class ChatController:
         return response_match.group(1).strip() if response_match else "I'm sorry, something went wrong. Please try again."
 
     @classmethod
-    def chat(cls, request: ChatRequest) -> ChatResponse:
+    def chat(cls, request: AgenticRequest) -> AgenticResponse:
         """
         Chat with the LangGraph chat agent. 
         
@@ -30,10 +30,15 @@ class ChatController:
         # TODO: Implement memory retrieval.
         # message_history = MessageHistory(messages=[])
 
+        # Get the latest user text from the request
+        user_text = request.latest_user_text
+        if not user_text:
+            user_text = "Hello"  # Default fallback
+
         # Convert the variables to a dictionary for the prompt to insert.
         inputs: Dict[str, Any] = {
             "chat_history": '',
-            "message": request.text
+            "message": user_text
         }
 
         # Create a Chat prompt object from the inputs.
@@ -42,10 +47,16 @@ class ChatController:
         # Run the chat service and get back a message object.
         response: Message = chat_service.run(prompt)
 
+        # Extract and clean the response text
+        response_text = cls.extract_response(response.text)
+        
+        # Create response message
+        response_message = Message.from_text("assistant", response_text)
+
         # TODO: Append to the message history.
         
-        # Return the chat response object to the server.
-        return ChatResponse(
-            text=cls.extract_response(response.text),
-            conversationId=request.conversationId if request.conversationId else str(uuid.uuid4())
+        # Return the agent response object to the server.
+        return AgenticResponse(
+            message=response_message,
+            session_id=request.session_id
         )

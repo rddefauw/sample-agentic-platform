@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, model_validator, ConfigDict
 from typing import Dict, List, Optional, Tuple, Any
 from datetime import datetime
 from agentic_platform.service.llm_gateway.models.usage_types import (
@@ -46,25 +46,21 @@ class GetUsageSummaryResponse(BaseModel):
 
 # For the passthrough endpoint
 class ConverseRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")  # This allows arbitrary additional fields which is the rest of the request body.
+    
     modelId: str
 
-    class Config:
-        extra = "allow"  # This allows arbitrary additional fields which is the rest of the request body.
-
 class ConverseResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    
     output: Dict[str, Any]
 
-    class Config:
-        extra = "allow"
-
 class ChatCompletionRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")  # This allows arbitrary additional fields which is the rest of the request body.
+    
     model: str
 
-    class Config:
-        extra = "allow"  # This allows arbitrary additional fields which is the rest of the request body.
-
 class ChatCompletionResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    
     choices: List[Any]
-
-    class Config:
-        extra = "allow"

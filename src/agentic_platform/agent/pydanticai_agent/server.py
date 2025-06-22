@@ -2,7 +2,7 @@ from fastapi import FastAPI
 import uvicorn
 
 from agentic_platform.core.middleware.configure_middleware import configuration_server_middleware
-from agentic_platform.core.models.api_models import AgentRequest, AgentResponse
+from agentic_platform.core.models.api_models import AgenticRequest, AgenticResponse
 from agentic_platform.core.decorator.api_error_decorator import handle_exceptions
 from agentic_platform.agent.pydanticai_agent.pyai_agent_controller import PyAIAgentController
 import logging
@@ -17,9 +17,9 @@ app = FastAPI(title="PydanticAI Agent API",)
 configuration_server_middleware(app,path_prefix="/pydanticai-agent")
 
 # Essential endpoints
-@app.post("/invoke", response_model=AgentResponse)
+@app.post("/invoke", response_model=AgenticResponse)
 @handle_exceptions(status_code=500, error_prefix="PydanticAI Agent API Error")
-async def invoke(request: AgentRequest) -> AgentResponse:
+async def invoke(request: AgenticRequest) -> AgenticResponse:
     """
     Invoke the PydanticAI agent.
     Keep this app server very thin and push all logic to the controller.

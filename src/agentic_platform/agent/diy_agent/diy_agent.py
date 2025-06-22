@@ -1,8 +1,8 @@
 from typing import List, Callable
 from pydantic import BaseModel
 
-from agentic_platform.core.models.api_models import AgentRequest, AgentResponse
-from agentic_platform.core.models.memory_models import Message
+from agentic_platform.core.models.api_models import AgenticRequest, AgenticResponse
+from agentic_platform.core.models.memory_models import Message, TextContent
 from agentic_platform.core.models.prompt_models import BasePrompt
 from agentic_platform.core.models.llm_models import LLMRequest, LLMResponse
 from agentic_platform.core.models.tool_models import ToolSpec
@@ -42,7 +42,7 @@ class DIYAgent:
         # Append the llms response to the conversation.
         self.conversation.add_message(Message(
             role="assistant",
-            text=response.text,
+            content=[TextContent(type="text", text=response.text)] if response.text else [],
             tool_calls=response.tool_calls
         ))
         # Return the response.
@@ -71,20 +71,23 @@ class DIYAgent:
         # Return the tool results even though we don't use it.
         return tool_results
     
-    def invoke(self, request: AgentRequest) -> AgentResponse:
-        # Get prompt from request
-        prompt: BasePrompt = self.prompt.format(inputs={"user_message": request.message})
+    def invoke(self, request: AgenticRequest) -> AgenticResponse:
         # Get or create conversation
-        if request.conversationId:
-            request = GetSessionContextRequest(session_id=request.session_id)
-            self.conversation = memory_client.get_session_context(request).results[0]
+        if request.session_id:
+            sess_request = GetSessionContextRequest(session_id=request.session_id)
+            session_results = memory_client.get_session_context(sess_request).results
+            if session_results:
+                self.conversation = session_results[0]
+            else:
+                self.conversation = SessionContext(session_id=request.session_id)
         else:
             self.conversation = SessionContext(session_id=request.session_id)
 
-        # Add user message to conversation
-        self.conversation.add_message(Message(role="user", text=request.text))
+        # Add the message from request to conversation
+        self.conversation.add_message(request.message)
 
         # Keep calling LLM until we get a final response
+        final_response = None
         while True:
             # Call the LLM
             response: LLMResponse = self.call_llm()
@@ -96,7 +99,8 @@ class DIYAgent:
                 # Continue the loop to get final response
                 continue
             
-            # If we get here, it's a final response         
+            # If we get here, it's a final response
+            final_response = response         
             break
 
         # Save updated conversation
@@ -104,8 +108,19 @@ class DIYAgent:
             session_context=self.conversation
         ))
 
-        # Return our own type.
-        return AgentResponse(
-            response=response.text,
-            conversation_id=self.conversation.session_id
+        # Get the last assistant message from conversation
+        assistant_messages = [msg for msg in self.conversation.messages if msg.role == "assistant"]
+        last_assistant_message = assistant_messages[-1] if assistant_messages else Message(
+            role="assistant",
+            content=[TextContent(type="text", text=final_response.text if final_response else "No response generated")]
+        )
+
+        # Return our new response format
+        return AgenticResponse(
+            session_id=self.conversation.session_id,
+            message=last_assistant_message,
+            metadata={
+                "model": self.prompt.model_id,
+                "stop_reason": final_response.stop_reason if final_response else "unknown"
+            }
         )

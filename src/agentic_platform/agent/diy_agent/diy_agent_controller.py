@@ -1,4 +1,4 @@
-from agentic_platform.core.models.api_models import AgentRequest, AgentResponse
+from agentic_platform.core.models.api_models import AgenticRequest, AgenticResponse
 
 from agentic_platform.agent.diy_agent.diy_agent import DIYAgent
 from agentic_platform.tool.retrieval.retrieval_tool import retrieve_and_answer
@@ -13,7 +13,7 @@ agent = DIYAgent(tools=tools)
 class DIYAgentController:
 
     @classmethod
-    def invoke(cls, request: AgentRequest) -> AgentResponse:
+    def invoke(cls, request: AgenticRequest) -> AgenticResponse:
         """
         Invoke the DIY agent. 
         """

@@ -33,13 +33,14 @@ class UsageClient:
     @classmethod
     def _to_dynamo_item(cls, record: UsageRecord) -> Dict:
         timestamp = record.timestamp
+        total_tokens = record.input_tokens + record.output_tokens
         return {
             'tenant_id': record.tenant_id,
             'usage_id': f"{timestamp}#{record.model}#{uuid.uuid4().hex}",
             'model': record.model,
             'input_tokens': record.input_tokens,
             'output_tokens': record.output_tokens,
-            'total_tokens': record.total_tokens,
+            'total_tokens': total_tokens,
             'timestamp': timestamp,
             'metadata': record.metadata,
             'ttl': timestamp + USAGE_TTL_SECONDS
@@ -53,7 +54,6 @@ class UsageClient:
             model=item['model'],
             input_tokens=item['input_tokens'],
             output_tokens=item['output_tokens'],
-            total_tokens=item['total_tokens'],
             metadata=item.get('metadata', {})
         )
 

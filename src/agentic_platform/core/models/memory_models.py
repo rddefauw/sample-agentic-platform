@@ -1,5 +1,5 @@
-from typing import Dict, Any, Optional, List, Literal, Union
-from pydantic import BaseModel, Field, field_validator
+from typing import Dict, Any, Optional, List, Literal, Union, Annotated
+from pydantic import BaseModel, Field, field_validator, Discriminator
 from uuid import uuid4
 from datetime import datetime
 
@@ -43,23 +43,29 @@ class JsonContent(BaseContent):
     type: Literal["json"] = "json"
     content: Dict[str, Any]
 
+# Create a discriminated union for proper serialization/deserialization
+Content = Annotated[
+    Union[TextContent, ImageContent, AudioContent, JsonContent],
+    Discriminator('type')
+]
+
 # With this approach we're able to support a superset of MCP and Bedrock message types.
 class ToolResult(BaseModel):
     """A tool result"""
     # ToolUse Id is optional and can be added post instantiation by the calling agent.
     id: Optional[str] = None
-    content: List[BaseContent]
+    content: List[Content]
     isError: bool = False
 
     @classmethod
-    def to_content(cls, value: Any) -> List[BaseContent]:
+    def to_content(cls, value: Any) -> List[Content]:
         """Convert any Python value to properly typed content items"""
         # Handle None
         if value is None:
             return []
             
         # Already a content item
-        if isinstance(value, BaseContent):
+        if isinstance(value, (TextContent, ImageContent, AudioContent, JsonContent)):
             return [value]
             
         # String -> TextContent
@@ -97,7 +103,7 @@ class MediaInfo(BaseModel):
 class Message(BaseModel):
     """A message in the conversation"""
     role: Literal["user", "assistant"]
-    content: Optional[List[BaseContent]] = None
+    content: Optional[List[Content]] = None
     tool_calls: List[ToolCall] = Field(default_factory=list)
     tool_results: List[ToolResult] = Field(default_factory=list)
     timestamp: float = Field(default_factory=lambda: datetime.now().timestamp())

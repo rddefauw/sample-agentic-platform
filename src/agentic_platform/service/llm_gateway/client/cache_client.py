@@ -46,14 +46,14 @@ class RateLimiter:
         return f"usage_plan:{entity_type}:{entity_id}"
     
     @classmethod
-    async def cache_usage_plan(cls, key: UsagePlan) -> bool:
+    async def cache_usage_plan(cls, usage_plan: UsagePlan) -> bool:
         """
         Cache Usage Plan details in Redis.
         """
         try:
-            # Convert APIKey to dict for storage
-            key_data: str = key.model_dump_json()
-            redis_key: str = cls._get_usage_plan_key(key.key_hash)
+            # Convert UsagePlan to dict for storage
+            key_data: str = usage_plan.model_dump_json()
+            redis_key: str = cls._get_usage_plan_key(usage_plan.entity_id, usage_plan.entity_type)
             # Store in Redis with TTL
             await cls.redis.setex(redis_key, cls.USAGE_PLAN_CACHE_TTL, key_data)
             return True

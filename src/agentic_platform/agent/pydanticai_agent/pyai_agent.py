@@ -1,6 +1,6 @@
 from typing import List, Callable
-from agentic_platform.core.models.api_models import AgentRequest, AgentResponse
-from agentic_platform.core.models.memory_models import Message
+from agentic_platform.core.models.api_models import AgenticRequest, AgenticResponse
+from agentic_platform.core.models.memory_models import Message, TextContent
 from agentic_platform.core.models.prompt_models import BasePrompt
 from agentic_platform.core.client.memory_gateway.memory_gateway_client import MemoryGatewayClient
 from agentic_platform.core.models.memory_models import SessionContext, Message
@@ -40,27 +40,50 @@ class PyAIAgent:
         # Add our tools to the agent.
         [self.agent.tool_plain(func)for func in tools]
     
-    async def invoke(self, request: AgentRequest) -> AgentResponse:
+    async def invoke(self, request: AgenticRequest) -> AgenticResponse:
         # Get or create conversation
         if request.session_id:
             sess_request = GetSessionContextRequest(session_id=request.session_id)
-            self.conversation = memory_client.get_session_context(sess_request).results[0]
+            session_results = memory_client.get_session_context(sess_request).results
+            if session_results:
+                self.conversation = session_results[0]
+            else:
+                self.conversation = SessionContext(session_id=request.session_id)
         else:
-            self.conversation = SessionContext()
+            self.conversation = SessionContext(session_id=request.session_id)
 
-        # Add user message to conversation
-        self.conversation.add_message(Message(role="user", text=request.text))
-        # Convert to langchain messages
-        response: ModelResponse = await self.agent.run(request.text)
-        # Convert to our response format
-        messages: List[Message] = PydanticAIMessageConverter.convert_messages(response.all_messages())
-        self.conversation.add_messages(messages)
+        # Add the message from request to conversation
+        self.conversation.add_message(request.message)
+        
+        # Get the user message text for PydanticAI
+        latest_user_text = request.user_text
+        if not latest_user_text:
+            raise ValueError("No user message found in request")
+
+        # Convert to pydanticai messages and run
+        response: ModelResponse = await self.agent.run(latest_user_text)
+        
+        # Convert response messages to our format
+        converted_messages: List[Message] = PydanticAIMessageConverter.convert_messages(response.all_messages())
+        
+        # Add only the new assistant messages to conversation (filter out the user message we just added)
+        assistant_messages = [msg for msg in converted_messages if msg.role == "assistant"]
+        self.conversation.add_messages(assistant_messages)
+        
+        # Save updated conversation
         memory_client.upsert_session_context(UpsertSessionContextRequest(
             session_context=self.conversation
         ))
 
-        # Return the response
-        return AgentResponse(
+        # Return the last assistant message as response
+        last_assistant_message = assistant_messages[-1] if assistant_messages else Message(
+            role="assistant",
+            content=[TextContent(type="text", text="No response generated")]
+        )
+
+        # Return the response using new format
+        return AgenticResponse(
             session_id=self.conversation.session_id,
-            message=messages[-1].text
+            message=last_assistant_message,
+            metadata={"model": "anthropic.claude-3-sonnet-20240229-v1:0"}
         )

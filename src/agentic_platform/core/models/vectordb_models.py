@@ -1,5 +1,5 @@
 from typing import List, Dict, Any, Optional, Union
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 class FilterCondition(BaseModel):
     """Represents a filter condition for vector search queries."""
@@ -9,15 +9,12 @@ class FilterCondition(BaseModel):
 
 class VectorSearchRequest(BaseModel):
     """Generic vector search request for vector databases."""
+    model_config = ConfigDict(extra="allow")
+    
     query: str = Field(..., description="Search query text")
     filters: Optional[List[FilterCondition]] = Field(None, description="Filters to apply")
     limit: int = Field(10, description="Maximum number of results to return")
-    
-    
     search_type: Optional[str] = Field(None, description="Search type: HYBRID or SEMANTIC (Bedrock specific)")
-    
-    class Config:
-        extra = "allow"
 
 class VectorSearchResult(BaseModel):
     """Represents a single result from vector search."""

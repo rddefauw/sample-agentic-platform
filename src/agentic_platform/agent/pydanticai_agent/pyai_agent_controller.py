@@ -1,4 +1,4 @@
-from agentic_platform.core.models.api_models import AgentRequest, AgentResponse
+from agentic_platform.core.models.api_models import AgenticRequest, AgenticResponse
 from typing import List, Callable
 from agentic_platform.agent.pydanticai_agent.pyai_agent import PyAIAgent
 from agentic_platform.tool.retrieval.retrieval_tool import retrieve_and_answer
@@ -13,7 +13,7 @@ agent = PyAIAgent(tools=tools)
 class PyAIAgentController:
 
     @classmethod
-    async def invoke(cls, request: AgentRequest) -> AgentResponse:
+    async def invoke(cls, request: AgenticRequest) -> AgenticResponse:
         """
         Invoke the DIY agent. 
         """

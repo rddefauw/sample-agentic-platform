@@ -32,7 +32,7 @@ class UsagePlanClient:
         """Revoke an API key by marking it as inactive."""
         # Hash the key to get the entity_id
         if entity_type == UsagePlanEntityType.API_KEY:
-            entity_id = cls.hash_key(entity_id)
+            entity_id = UsagePlanDB.hash_key(entity_id)
         
         # Deactivate the plan
         return await UsagePlanDB.deactivate_plan(
@@ -45,7 +45,7 @@ class UsagePlanClient:
         """Validate a raw API key and return the associated plan if active."""
         # Hash the key
         if entity_type == UsagePlanEntityType.API_KEY:
-            entity_id = cls.hash_key(entity_id)
+            entity_id = UsagePlanDB.hash_key(entity_id)
         
         # Get the plan
         plan: Optional[UsagePlan] = UsagePlanDB.get_plan_by_id(

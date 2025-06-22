@@ -2,7 +2,7 @@ from fastapi import FastAPI
 import uvicorn
 
 from agentic_platform.core.middleware.configure_middleware import configuration_server_middleware
-from agentic_platform.core.models.api_models import ChatRequest, ChatResponse
+from agentic_platform.core.models.api_models import AgenticRequest, AgenticResponse
 from agentic_platform.core.decorator.api_error_decorator import handle_exceptions
 from agentic_platform.chat.langgraph_chat.chat_controller import ChatController
 import logging
@@ -17,9 +17,9 @@ app = FastAPI(title="LangGraph Chat API",)
 configuration_server_middleware(app,path_prefix="/langgraph-chat")
 
 # Essential endpoints
-@app.post("/chat", response_model=ChatResponse)
-@handle_exceptions(status_code=500, error_prefix="Chat API Error")
-async def chat(request: ChatRequest) -> ChatResponse:
+@app.post("/chat", response_model=AgenticResponse)
+@handle_exceptions(status_code=500, error_prefix="LangGraph Chat API Error")
+async def chat(request: AgenticRequest) -> AgenticResponse:
     """
     Chat with the LangGraph chat agent.
     Keep this app server very thin and push all logic to the controller.
