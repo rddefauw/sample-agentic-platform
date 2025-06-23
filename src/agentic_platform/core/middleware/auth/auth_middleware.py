@@ -101,6 +101,25 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if method == "OPTIONS":
             return await call_next(request)
         
+        # Skip authentication entirely for local environment (integration testing)
+        environment = os.getenv("ENVIRONMENT", "").lower()
+        if environment == "local":
+            logger.info("Skipping authentication for local environment")
+            # Create a mock auth result for local testing
+            from agentic_platform.core.models.auth_models import AgenticPlatformAuth, UserAuth
+            mock_auth = AgenticPlatformAuth(
+                type="user",
+                user=UserAuth(
+                    user_id="test-user-123",
+                    username="test-user",
+                    email="test@example.com",
+                    provider="local",
+                    metadata={"test": True}
+                )
+            )
+            self.store_auth_result(request, mock_auth)
+            return await call_next(request)
+        
         # Check that auth is properly configured
         self.check_auth_configuration()
         

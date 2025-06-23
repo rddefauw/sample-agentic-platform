@@ -46,6 +46,12 @@ class AgenticRequest(BaseModel):
         if self.message.role == "user" and self.message.text:
             return self.message.text
         return None
+    
+    # Alias for compatibility with workflow controllers
+    @property
+    def latest_user_text(self) -> Optional[str]:
+        """Get the text from the most recent user message (alias for user_text)"""
+        return self.user_text
 
 class AgenticRequestStream(AgenticRequest):
     """Request model for streaming agent tasks"""
@@ -94,10 +100,3 @@ class RetrieveRequest(BaseModel):
 class RetrieveResponse(BaseModel):
     """Response model for retrieve"""
     vectorsearch_results: VectorSearchResponse
-
-
-
-
-
-
-

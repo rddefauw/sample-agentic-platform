@@ -127,6 +127,9 @@ ENV/
 env.bak/
 venv.bak/
 
+# Generated integration test environment files
+tests/integ/.env.*
+
 # Pyre type checker
 .pyre/
 

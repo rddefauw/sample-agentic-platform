@@ -2,7 +2,6 @@
 
 # This docker-compose file is for local development purposes only
 # It should be deployed in any way shape or form into your account.
-version: '3.8'
 
 services:
   db:  # Service name
@@ -35,7 +34,7 @@ services:
     command: redis-server --save 60 1 --loglevel warning --requirepass redis
     security_opt:
       - no-new-privileges:true
-    read_only: true
+    read_only: false
     tmpfs:
       - /tmp
     healthcheck:
@@ -63,6 +62,63 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  # LLM Gateway Service
+  llm-gateway:
+    build:
+      context: .
+      dockerfile: docker/llm-gateway/Dockerfile
+    ports:
+      - "4000:8000"
+    env_file:
+      - tests/integ/.env.llm-gateway
+    environment:
+      # Override specific values for local Docker setup
+      - PG_CONNECTION_URL=db:5432
+      - REDIS_URL=redis://redis:6379
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    volumes:
+      # Mount AWS credentials and config for automatic credential discovery
+      - ${HOME}/.aws:/home/appuser/.aws:ro
+    depends_on:
+      - db
+      - redis
+      - dynamodb-local
+    restart: unless-stopped
+
+  # Memory Gateway Service
+  memory-gateway:
+    build:
+      context: .
+      dockerfile: docker/memory-gateway/Dockerfile
+    ports:
+      - "4001:8000"
+    env_file:
+      - tests/integ/.env.memory-gateway
+    environment:
+      # Override specific values for local Docker setup
+      - PG_CONNECTION_URL=db:5432
+    volumes:
+      # Mount AWS credentials and config for automatic credential discovery
+      - ${HOME}/.aws:/home/appuser/.aws:ro
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  # Retrieval Gateway Service
+  retrieval-gateway:
+    build:
+      context: .
+      dockerfile: docker/retrieval-gateway/Dockerfile
+    ports:
+      - "4002:8000"
+    env_file:
+      - tests/integ/.env.retrieval-gateway
+    volumes:
+      # Mount AWS credentials and config for automatic credential discovery
+      - ${HOME}/.aws:/home/appuser/.aws:ro
+    restart: unless-stopped
 
 volumes:
   postgres_data:

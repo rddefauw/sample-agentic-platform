@@ -43,4 +43,5 @@ class GetUsagePlanController:
             entity_type=entity_type,
             model_permissions=['*']
         )
-        return CreateUsagePlanController.create(create_request)
+        response = CreateUsagePlanController.create(create_request)
+        return response.plan

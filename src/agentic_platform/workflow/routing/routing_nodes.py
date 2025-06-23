@@ -55,21 +55,14 @@ def _call_vector_search(query:str, limit:int) -> VectorSearchResponse:
     return '\n'.join([result.text for result in response.results])
 
 def _do_rag(user_input: str, rag_prompt: Type[BasePrompt]) -> str:
+    """Calls RAG to get a response with context from vector search"""
     # Retrieve the context from the vector store
     context: str = _call_vector_search(user_input, 2)
     # Create the RAG prompt
     inputs: Dict[str, Any] = {"question": user_input, "context": context}
     rag_prompt: BasePrompt = rag_prompt(inputs=inputs)
     # Call Bedrock with the RAG prompt
-
     return _call_bedrock(rag_prompt)
-
-def _do_rag(query:str, prompt: BasePrompt) -> str:
-    """Calls RAG to get a response"""
-    inputs: Dict[str, Any] = {"question": query}
-    prompt: BasePrompt = prompt(inputs=inputs)
-    response: str = _call_bedrock(prompt)
-    return response
 
 def classify_question(state: WorkflowState) -> Dict[str, str]:
     """Classifies the question into a category"""

@@ -163,7 +163,7 @@ class TestGetUsagePlanController:
         assert create_request.model_permissions == ['*']
         
         # Verify created plan was returned
-        assert result is mock_response
+        assert result is mock_response.plan
     
     @patch('agentic_platform.service.llm_gateway.api.get_usage_plan_controller.RateLimiter.get_usage_plan_from_cache')
     @pytest.mark.asyncio
@@ -223,4 +223,4 @@ class TestGetUsagePlanController:
         
         for method in expected_methods:
             assert hasattr(GetUsagePlanController, method)
-            assert callable(getattr(GetUsagePlanController, method)) 
+            assert callable(getattr(GetUsagePlanController, method))
