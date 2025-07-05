@@ -7,7 +7,7 @@ from agentic_platform.service.retrieval_gateway.api.retrieve_controller import R
 app = FastAPI()
 
 # Configure middelware that's common to all servers.
-configuration_server_middleware(app, path_prefix="/retrieval-gateway")
+configuration_server_middleware(app, path_prefix="/api/retrieval-gateway")
 
 @app.post("/retrieve")
 async def retrieve(request: RetrieveRequest) -> RetrieveResponse:

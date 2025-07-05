@@ -19,7 +19,7 @@ from agentic_platform.service.memory_gateway.api.create_memory_controller import
 app = FastAPI()
 
 # Configure middelware that's common to all servers.
-configuration_server_middleware(app, path_prefix="/memory-gateway")
+configuration_server_middleware(app, path_prefix="/api/memory-gateway")
 
 @app.post("/get-session-context")
 async def get_session_context(request: GetSessionContextRequest) -> GetSessionContextResponse:

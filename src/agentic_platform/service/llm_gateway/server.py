@@ -22,7 +22,7 @@ from agentic_platform.core.models.auth_models import AgenticPlatformAuth
 app = FastAPI()
 
 # Configure middelware that's common to all servers.
-configuration_server_middleware(app, path_prefix="/llm-gateway")
+configuration_server_middleware(app, path_prefix="/api/llm-gateway")
 
 # In our custom LLM Gateway Auth middleware, we store the auth object in the request state.
 # This is the easiest way to support both API key and JwT authentication.

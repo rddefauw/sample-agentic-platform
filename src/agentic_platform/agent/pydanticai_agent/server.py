@@ -14,7 +14,7 @@ logger.setLevel(logging.INFO)
 app = FastAPI(title="PydanticAI Agent API",)
 
 # Essential middleware.
-configuration_server_middleware(app,path_prefix="/pydanticai-agent")
+configuration_server_middleware(app,path_prefix="/api/pydanticai-agent")
 
 # Essential endpoints
 @app.post("/invoke", response_model=AgenticResponse)

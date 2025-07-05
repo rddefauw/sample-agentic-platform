@@ -1,4 +1,3 @@
-
 ########################################################
 # CloudFront Response Headers Policy
 ########################################################
@@ -60,8 +59,13 @@ resource "aws_cloudfront_distribution" "spa_website" {
   # checkov:skip=CKV_AWS_374:Geo restriction not required for example application - global access intended
   # checkov:skip=CKV_AWS_68:WAF intentionally disabled - regional stacks fail to deploy because WAF is global and requires us-east-1
   # checkov:skip=CKV2_AWS_47:WAF intentionally disabled - regional stacks fail to deploy because WAF is global and requires us-east-1
-  # checkov:skip=CKV_AWS_86:Access logging not needed for sample UI - adds unnecessary complexity and cost
+  # checkov:skip=CKV_AWS_130:CloudFront access logging disabled. This is a sample website / app.
+  # checkov:skip=CKV_AWS_86:Removing access logging
 
+
+  # Logging disabled for security and cost optimization
+
+  # Single origin for all paths
   origin {
     domain_name              = aws_s3_bucket.spa_website.bucket_regional_domain_name
     origin_access_control_id = aws_cloudfront_origin_access_control.spa_website.id
@@ -98,51 +102,6 @@ resource "aws_cloudfront_distribution" "spa_website" {
     default_ttl              = 3600
     max_ttl                  = 86400
     compress                 = true
-    response_headers_policy_id = aws_cloudfront_response_headers_policy.spa_website.id
-  }
-
-  # Cache behavior for static assets (CSS, JS, images)
-  ordered_cache_behavior {
-    path_pattern     = "/static/*"
-    allowed_methods  = ["GET", "HEAD", "OPTIONS"]
-    cached_methods   = ["GET", "HEAD"]
-    target_origin_id = "S3-${aws_s3_bucket.spa_website.bucket}"
-
-    forwarded_values {
-      query_string = false
-      cookies {
-        forward = "none"
-      }
-    }
-
-    min_ttl                    = 0
-    default_ttl                = 86400
-    max_ttl                    = 31536000
-    compress                   = true
-    viewer_protocol_policy     = "redirect-to-https"
-    response_headers_policy_id = aws_cloudfront_response_headers_policy.spa_website.id
-  }
-
-  # Cache behavior for API calls (if your SPA makes API calls through CloudFront)
-  ordered_cache_behavior {
-    path_pattern     = "/api/*"
-    allowed_methods  = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
-    cached_methods   = ["GET", "HEAD"]
-    target_origin_id = "S3-${aws_s3_bucket.spa_website.bucket}"
-
-    forwarded_values {
-      query_string = true
-      headers      = ["Authorization", "CloudFront-Forwarded-Proto"]
-      cookies {
-        forward = "all"
-      }
-    }
-
-    min_ttl                    = 0
-    default_ttl                = 0
-    max_ttl                    = 0
-    compress                   = true
-    viewer_protocol_policy     = "redirect-to-https"
     response_headers_policy_id = aws_cloudfront_response_headers_policy.spa_website.id
   }
 
@@ -200,5 +159,5 @@ output "cloudfront_domain_name" {
 
 output "spa_website_url" {
   description = "URL of the SPA website"
-  value       = "https://${aws_cloudfront_distribution.spa_website.domain_name}"
+  value       = "https://${aws_cloudfront_distribution.spa_website.domain_name}/frontend"
 }

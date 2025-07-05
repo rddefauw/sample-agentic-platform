@@ -45,9 +45,6 @@ class PathTransformMiddleware(BaseHTTPMiddleware):
         # Extract the original path
         original_path: str = cast(str, request.scope["path"])
         
-        # Log all incoming requests
-        print(f"Middleware received request with path: {original_path}")
-        
         # Check if the path matches our pattern
         match: Optional[Match[str]] = self.pattern.search(original_path)
         if match:

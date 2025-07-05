@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any, List, Literal, Union
+from pydantic import BaseModel, Field, Discriminator
+from typing import Optional, Dict, Any, List, Literal, Union, Annotated
 from enum import Enum
 from uuid import uuid4
 from datetime import datetime
@@ -13,13 +13,15 @@ from fastapi import Response, status
 
 class StreamEventType(str, Enum):
     """Types of events that can be streamed"""
-    TEXT_DELTA = "text_delta"       # A chunk of text content
-    TEXT_DONE = "text_done"         # Text content is complete
-    THINKING = "thinking"           # Agent's internal reasoning
-    TOOL_CALL = "tool_call"         # Tool being called
-    TOOL_RESULT = "tool_result"     # Result from tool
-    ERROR = "error"                 # Error occurred
-    DONE = "done"                   # Stream complete
+    START = "start"                             # Stream started
+    CONTENT_BLOCK_START = "content_block_start" # Start of a content block
+    CONTENT_BLOCK_END = "content_block_end"     # End of a content block
+    TEXT_DELTA = "text_delta"                   # A chunk of text content
+    THINKING_DELTA = "thinking_delta"           # Agent's internal reasoning
+    TOOL_CALL = "tool_call"                     # Tool being called
+    TOOL_RESULT = "tool_result"                 # Result from tool
+    ERROR = "error"                             # Error occurred
+    DONE = "done"                               # Stream complete
 
 class BaseStreamEvent(BaseModel):
     """Base class for stream events"""
@@ -28,19 +30,24 @@ class BaseStreamEvent(BaseModel):
     timestamp: datetime = Field(default_factory=datetime.now)
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
+class StartEvent(BaseStreamEvent):
+    """Event signaling text content is complete"""
+    type: Literal[StreamEventType.START] = StreamEventType.START
 class TextDeltaEvent(BaseStreamEvent):
     """Event containing a chunk of text"""
     type: Literal[StreamEventType.TEXT_DELTA] = StreamEventType.TEXT_DELTA
     text: str  # The text chunk
-
-class TextDoneEvent(BaseStreamEvent):
+class ContentBlockStart(BaseStreamEvent):
     """Event signaling text content is complete"""
-    type: Literal[StreamEventType.TEXT_DONE] = StreamEventType.TEXT_DONE
+    type: Literal[StreamEventType.CONTENT_BLOCK_START] = StreamEventType.CONTENT_BLOCK_START
     text: str  # The complete text
-
-class ThinkingEvent(BaseStreamEvent):
+class ContentBlockEnd(BaseStreamEvent):
+    """Event signaling text content is complete"""
+    type: Literal[StreamEventType.CONTENT_BLOCK_END] = StreamEventType.CONTENT_BLOCK_END
+    text: str  # The complete text
+class ThinkingDeltaEvent(BaseStreamEvent):
     """Event containing agent's thinking process"""
-    type: Literal[StreamEventType.THINKING] = StreamEventType.THINKING
+    type: Literal[StreamEventType.THINKING_DELTA] = StreamEventType.THINKING_DELTA
     thinking: str
 
 class ToolCallEvent(BaseStreamEvent):
@@ -62,15 +69,19 @@ class DoneEvent(BaseStreamEvent):
     """Event signaling stream completion"""
     type: Literal[StreamEventType.DONE] = StreamEventType.DONE
 
-# Union type for all possible events
-StreamEvent = Union[
-    TextDeltaEvent,
-    TextDoneEvent,
-    ThinkingEvent,
-    ToolCallEvent,
-    ToolResultEvent,
-    ErrorEvent,
-    DoneEvent
+StreamEvent = Annotated[
+    Union[
+        StartEvent,
+        ContentBlockStart,
+        ContentBlockEnd,
+        TextDeltaEvent,
+        ThinkingDeltaEvent,
+        ToolCallEvent,
+        ToolResultEvent,
+        ErrorEvent,
+        DoneEvent
+    ],
+    Discriminator('type')
 ]
     
     

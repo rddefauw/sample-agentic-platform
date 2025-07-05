@@ -14,7 +14,7 @@ logger.setLevel(logging.INFO)
 app = FastAPI(title="LangGraph Chat API",)
 
 # Essential middleware.
-configuration_server_middleware(app,path_prefix="/langgraph-chat")
+configuration_server_middleware(app,path_prefix="/api/langgraph-chat")
 
 # Essential endpoints
 @app.post("/chat", response_model=AgenticResponse)
