@@ -1,0 +1,64 @@
+# Default values for litellm.
+# This is a YAML-formatted file.
+
+# Specify the namespace where this service will be deployed
+# Leave empty to use the namespace specified in the helm command
+namespace: "default"
+
+# Replica count for scaling
+replicaCount: 1
+
+aws:
+  region: ""
+  account: ""
+  stackPrefix: "agent-ptfm"
+
+# Container image
+image:
+  repository: "ghcr.io/berriai/litellm"
+  tag: "main-latest"
+  pullPolicy: Always
+
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 4000
+
+# Resource allocation
+resources:
+  requests:
+    cpu: 100m      # 0.1 CPU core (10% of a core)
+    memory: 256Mi  # 256 megabytes
+  limits:
+    memory: 512Mi  # 512 megabytes
+
+# Ingress configuration
+ingress:
+  enabled: true
+  path: "/litellm"  # This will be prefixed with /api in the template
+
+# Service account for permissions
+serviceAccount:
+  name: "litellm-sa"
+  create: true
+  irsaRoleName: "litellm-role"
+
+# Database configuration
+database:
+  host: ""
+  port: 5432
+  name: "postgres"
+  user: "postgres"
+
+# Redis configuration
+redis:
+  host: ""
+  port: 6379
+
+# LiteLLM configuration
+litellm:
+  masterKey: ""  # Will be generated and stored in AWS Secrets Manager
+  ui: true
