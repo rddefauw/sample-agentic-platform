@@ -13,9 +13,17 @@ class LiteLLMRequestConverter:
             "role": message.role,
         }
         
+        # Extract text content from content list
+        content_text = ""
+        if message.content:
+            for content in message.content:
+                if content.type == "text":
+                    content_text = content.text
+                    break
+        
         # Add content if present
-        if message.text:
-            litellm_message["content"] = message.text
+        if content_text:
+            litellm_message["content"] = content_text
         
         # Add tool calls if present
         if message.tool_calls:
@@ -153,4 +161,116 @@ class LiteLLMResponseConverter:
             usage=usage,
             output=output,
             raw_response=litellm_response
+        )
+    
+    @staticmethod
+    def parse_streaming_line(line: str) -> Dict[str, Any]:
+        """Parse a streaming response line from LiteLLM"""
+        if not line.startswith('data: '):
+            return {}
+        
+        data_part = line[6:]  # Remove 'data: ' prefix
+        
+        if data_part.strip() == '[DONE]':
+            return {"done": True}
+        
+        try:
+            return json.loads(data_part)
+        except json.JSONDecodeError:
+            return {}
+    
+    @staticmethod
+    def process_streaming_chunk(chunk_data: Dict[str, Any], accumulated_state: Dict[str, Any]) -> LLMResponse:
+        """Process a streaming chunk and return an LLMResponse"""
+        # Initialize accumulated state if needed
+        if "accumulated_text" not in accumulated_state:
+            accumulated_state["accumulated_text"] = ""
+        if "accumulated_tool_calls" not in accumulated_state:
+            accumulated_state["accumulated_tool_calls"] = []
+        if "accumulated_usage" not in accumulated_state:
+            accumulated_state["accumulated_usage"] = Usage(prompt_tokens=0, completion_tokens=0, total_tokens=0)
+        
+        response_id = chunk_data.get("id", "")
+        choices = chunk_data.get("choices", [])
+        
+        if not choices:
+            return LLMResponse(
+                id=response_id, 
+                text=accumulated_state["accumulated_text"],
+                usage=accumulated_state["accumulated_usage"]
+            )
+        
+        choice = choices[0]
+        delta = choice.get("delta", {})
+        
+        # Handle text content
+        if "content" in delta and delta["content"]:
+            accumulated_state["accumulated_text"] += delta["content"]
+        
+        # Handle tool calls
+        if "tool_calls" in delta and delta["tool_calls"]:
+            for tool_call_delta in delta["tool_calls"]:
+                index = tool_call_delta.get("index", 0)
+                
+                # Ensure we have enough tool calls in our accumulated list
+                while len(accumulated_state["accumulated_tool_calls"]) <= index:
+                    accumulated_state["accumulated_tool_calls"].append({
+                        "id": "",
+                        "name": "",
+                        "arguments": ""
+                    })
+                
+                # Update the tool call at this index
+                if "id" in tool_call_delta:
+                    accumulated_state["accumulated_tool_calls"][index]["id"] = tool_call_delta["id"]
+                
+                if "function" in tool_call_delta:
+                    function = tool_call_delta["function"]
+                    if "name" in function:
+                        accumulated_state["accumulated_tool_calls"][index]["name"] = function["name"]
+                    if "arguments" in function:
+                        accumulated_state["accumulated_tool_calls"][index]["arguments"] += function["arguments"]
+        
+        # Handle finish reason and usage
+        finish_reason = choice.get("finish_reason")
+        
+        # Update usage information if present in this chunk
+        usage_data = chunk_data.get("usage", {})
+        if usage_data:
+            accumulated_state["accumulated_usage"] = Usage(
+                prompt_tokens=usage_data.get("prompt_tokens", 0),
+                completion_tokens=usage_data.get("completion_tokens", 0),
+                total_tokens=usage_data.get("total_tokens", 0)
+            )
+        
+        # Convert accumulated tool calls to ToolCall objects
+        tool_calls = []
+        for tc in accumulated_state["accumulated_tool_calls"]:
+            if tc["name"]:  # Only add if we have a name
+                try:
+                    arguments = json.loads(tc["arguments"]) if tc["arguments"] else {}
+                except json.JSONDecodeError:
+                    arguments = {}
+                
+                tool_calls.append(ToolCall(
+                    id=tc["id"],
+                    name=tc["name"],
+                    arguments=arguments
+                ))
+        
+        # Create output messages
+        output = []
+        if accumulated_state["accumulated_text"]:
+            output.append(Message(
+                role="assistant",
+                content=[TextContent(type="text", text=accumulated_state["accumulated_text"])]
+            ))
+        
+        return LLMResponse(
+            id=response_id,
+            text=accumulated_state["accumulated_text"],
+            stop_reason=finish_reason,
+            tool_calls=tool_calls,
+            usage=accumulated_state["accumulated_usage"],
+            output=output
         )

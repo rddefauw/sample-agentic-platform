@@ -87,23 +87,23 @@ services:
   #   restart: unless-stopped
 
   # Memory Gateway Service
-  # memory-gateway:
-  #   build:
-  #     context: .
-  #     dockerfile: docker/memory-gateway/Dockerfile
-  #   ports:
-  #     - "4001:8000"
-  #   env_file:
-  #     - tests/integ/.env.memory-gateway
-  #   environment:
-  #     # Override specific values for local Docker setup
-  #     - PG_CONNECTION_URL=db:5432
-  #   volumes:
-  #     # Mount AWS credentials and config for automatic credential discovery
-  #     - ${HOME}/.aws:/home/appuser/.aws:ro
-  #   depends_on:
-  #     - db
-  #   restart: unless-stopped
+  memory-gateway:
+    build:
+      context: .
+      dockerfile: docker/memory-gateway/Dockerfile
+    ports:
+      - "4001:8000"
+    env_file:
+      - .env
+    environment:
+      # Override specific values for local Docker setup
+      - PG_CONNECTION_URL=postgres:5432
+    volumes:
+      # Mount AWS credentials and config for automatic credential discovery
+      - ${HOME}/.aws:/home/appuser/.aws:ro
+    depends_on:
+      - postgres
+    restart: unless-stopped
 
   # # Retrieval Gateway Service
   # retrieval-gateway:

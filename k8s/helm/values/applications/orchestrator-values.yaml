@@ -60,6 +60,6 @@ configKeys:
 
 # Default values if keys aren't found in central config
 configDefaults:
-  LLM_GATEWAY_ENDPOINT: "http://llm-gateway.default.svc.cluster.local:80"
+  LITELLM_API_ENDPOINT: "http://litellm.default.svc.cluster.local:80"
   RETRIEVAL_GATEWAY_ENDPOINT: "http://retrieval-gateway.default.svc.cluster.local:80"
   MEMORY_GATEWAY_ENDPOINT: "http://memory-gateway.default.svc.cluster.local:80"

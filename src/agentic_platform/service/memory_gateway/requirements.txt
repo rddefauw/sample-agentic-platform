@@ -9,3 +9,5 @@ sqlalchemy
 psycopg2-binary
 pgvector
 python-dotenv
+httpx
+# openai
