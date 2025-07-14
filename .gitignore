@@ -6,6 +6,11 @@
 **/data/chroma.zip
 
 infrastructure/terraform/backend.tf
+backendinfrastructure/base/backend.tf
+**/backend.tf
+
+# Local Terraform variable files
+**/terraform.tfvars
 
 # Don't show the data folders for each module.
 labs/module1/notebooks/data/

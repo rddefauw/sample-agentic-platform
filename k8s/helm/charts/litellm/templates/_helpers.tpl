@@ -19,7 +19,5 @@
 {{- end }}
 
 {{- define "litellm.irsaRoleArn" -}}
-{{- if .Values.serviceAccount.irsaRoleName -}}
-{{- printf "arn:aws:iam::%s:role/%s-%s" .Values.aws.account .Values.aws.stackPrefix .Values.serviceAccount.irsaRoleName -}}
-{{- end -}}
+{{- (lookup "v1" "ConfigMap" .Values.namespace "agentic-platform-config").data.LITELLM_ROLE_ARN -}}
 {{- end }}

@@ -8,11 +8,6 @@ namespace: "default"
 # Replica count for scaling
 replicaCount: 1
 
-aws:
-  region: ""
-  account: ""
-  stackPrefix: "agent-ptfm"
-
 # Container image
 image:
   repository: "ghcr.io/berriai/litellm"
@@ -31,32 +26,19 @@ service:
 resources:
   requests:
     cpu: 100m      # 0.1 CPU core (10% of a core)
-    memory: 256Mi  # 256 megabytes
+    memory: 512Mi  # 512 megabytes (increased from 256Mi)
   limits:
-    memory: 512Mi  # 512 megabytes
+    memory: 1Gi    # 1 gigabyte (increased from 512Mi)
 
 # Ingress configuration
 ingress:
   enabled: true
   path: "/litellm"  # This will be prefixed with /api in the template
 
-# Service account for permissions
+# Service account for permissions. Irsa role is pulled from the config map created in terraform and retrieved in the _helpers.tpl file.
 serviceAccount:
   name: "litellm-sa"
   create: true
-  irsaRoleName: "litellm-role"
-
-# Database configuration
-database:
-  host: ""
-  port: 5432
-  name: "postgres"
-  user: "postgres"
-
-# Redis configuration
-redis:
-  host: ""
-  port: 6379
 
 # LiteLLM configuration
 litellm:

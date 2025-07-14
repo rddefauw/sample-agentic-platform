@@ -15,7 +15,7 @@ from agentic_platform.core.models.llm_models import LiteLLMClientInfo
 
 # Default to localhost:4000 if not specified
 LITELLM_API_ENDPOINT = os.getenv('LITELLM_API_ENDPOINT', 'http://localhost:4000')
-LITELLM_API_KEY = os.getenv('LITELLM_MASTER_KEY')
+LITELLM_API_KEY = os.getenv('LITELLM_KEY')
 
 
 class LiteLLMGatewayClient:

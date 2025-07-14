@@ -27,6 +27,9 @@ spec:
           envFrom:
             - secretRef:
                 name: litellm-secret
+            - configMapRef:
+                name: agentic-platform-config
+
           # We need to modify the root path b/c ALB doesn't support re-write.
           env:
             - name: SERVER_ROOT_PATH
@@ -46,8 +49,8 @@ spec:
             httpGet:
               path: /health/liveliness
               port: {{ .Values.service.targetPort | default 4000 }}
-            initialDelaySeconds: 5
-            periodSeconds: 5
+            initialDelaySeconds: 60  # Increased from 5s to allow Prisma generation to complete
+            periodSeconds: 10        # Increased from 5s to reduce probe frequency
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           args:

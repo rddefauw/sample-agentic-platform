@@ -63,6 +63,6 @@ data:
       health_check_interval: 30
 
     router_settings:
-      redis_host: {{ .Values.redis.host }}
-      redis_password: ${REDIS_PASSWORD}
-      redis_port: {{ .Values.redis.port }}
+      redis_host: os.environ/REDIS_HOST
+      redis_password: os.environ/REDIS_PASSWORD
+      redis_port: os.environ/REDIS_PORT
