@@ -176,16 +176,6 @@ class LiteLLMGatewayClient:
         # Return the embedding response
         return EmbedResponse(embedding=embedding)
     
-    # def get_openai_client(self) -> AsyncOpenAI:
-    #     """
-    #     Return an AsyncOpenAI client configured to use the LiteLLM gateway.
-    #     This can be used with PydanticAI and other libraries that expect an OpenAI client.
-    #     """
-    #     return AsyncOpenAI(
-    #         base_url=f"{self.api_endpoint}/v1",
-    #         api_key=self.api_key
-    #     )
-    
     def get_client(self) -> LiteLLMClientInfo:
         """
         Return a simple client object that can be used with other libraries.

@@ -28,7 +28,6 @@ fi
 # Deploy with Helm using values files
 echo "Deploying $SERVICE_NAME to Kubernetes with Helm..."
 helm upgrade --install $SERVICE_NAME ./k8s/helm/charts/agentic-service \
-  -f k8s/helm/values/applications/${SERVICE_NAME}-values.yaml \
-  -f k8s/helm/values/overlay/aws-overlay-values.yaml
+  -f k8s/helm/values/applications/${SERVICE_NAME}-values.yaml
 
 echo "Deployment complete!"

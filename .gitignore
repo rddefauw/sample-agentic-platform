@@ -1,6 +1,9 @@
 # Venv file
 .venv
 
+# Kiro steering docs
+.kiro
+
 # Chroma DB file
 **/data/chroma**
 **/data/chroma.zip

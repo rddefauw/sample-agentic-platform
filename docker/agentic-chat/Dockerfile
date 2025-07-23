@@ -9,7 +9,7 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 WORKDIR /app
 
 # Copy the entire source code
-COPY src/agentic_platform/agent/diy_agent/requirements.txt .
+COPY src/agentic_platform/agent/agentic_chat/requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
 
@@ -23,7 +23,7 @@ WORKDIR /app
 # Copy source now that the dependencies are installed
 COPY --chown=appuser:appgroup src/agentic_platform/core/ agentic_platform/core/
 COPY --chown=appuser:appgroup src/agentic_platform/tool/ agentic_platform/tool/
-COPY --chown=appuser:appgroup src/agentic_platform/agent/diy_agent/ agentic_platform/agent/diy_agent/
+COPY --chown=appuser:appgroup src/agentic_platform/agent/agentic_chat/ agentic_platform/agent/agentic_chat/
 
 # Set the working directory to where the server.py is located
 WORKDIR /app/
@@ -38,4 +38,4 @@ EXPOSE 8000
 USER appuser
 
 # Command to run the FastAPI server using uvicorn
-CMD ["uvicorn", "agentic_platform.agent.diy_agent.server:app", "--host", "0.0.0.0", "--port", "8000"] 
+CMD ["uvicorn", "agentic_platform.agent.agentic_chat.server:app", "--host", "0.0.0.0", "--port", "8000"] 
