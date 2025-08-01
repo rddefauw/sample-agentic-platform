@@ -21,12 +21,40 @@ terraform {
       source  = "hashicorp/random"
       version = "~> 3.1"
     }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = ">= 2.0"
+    }
+    helm = {
+      source  = "hashicorp/helm"
+      version = ">= 2.0"
+    }
   }
 }
 
 # Configure the AWS Provider
 provider "aws" {
   region = var.aws_region
+}
+
+# Configure Kubernetes provider using EKS module outputs
+provider "kubernetes" {
+  host                   = module.eks.cluster_endpoint
+  cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+  token                  = data.aws_eks_cluster_auth.main.token
+}
+
+# Get EKS cluster auth token
+data "aws_eks_cluster_auth" "main" {
+  name = module.eks.cluster_name
+}
+
+provider "helm" {
+  kubernetes = {
+    host                   = module.eks.cluster_endpoint
+    cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+    token                  = data.aws_eks_cluster_auth.main.token
+  }
 }
 
 # Get current AWS account information
@@ -274,7 +302,6 @@ module "s3_spa_website" {
   source = "../../modules/s3"
 
   # Core configuration
-  bucket_name = "${local.name_prefix}spa-website-${local.suffix}"
   bucket_type = "StaticWebsite"
   common_tags = local.common_tags
 
@@ -364,4 +391,34 @@ module "parameter_store" {
     #   KNOWLEDGE_BASE_ID = module.bedrock.default_kb_identifier
     # }
   }
+}
+
+########################################################
+# Conditional Kubernetes Module
+########################################################
+
+module "kubernetes" {
+  count = (var.enable_eks_public_access && !var.deploy_inside_vpc) || (!var.enable_eks_public_access && var.deploy_inside_vpc) ? 1 : 0
+  
+  source = "../../modules/kubernetes"
+
+  # ConfigMap configuration - use the parsed JSON from parameter store
+  namespace          = "default"
+  configuration_data = jsondecode(module.parameter_store.configuration_json)
+
+  # External Secrets Operator configuration
+  external_secrets_service_account_role_arn = module.irsa.external_secrets_role_arn
+
+  # AWS Load Balancer Controller configuration
+  aws_load_balancer_controller_service_account_role_arn = module.irsa.load_balancer_controller_role_arn
+  cluster_name                                          = module.eks.cluster_name
+  aws_region                                            = var.aws_region
+  vpc_id                                                = var.vpc_id
+
+  # OTEL Collectors configuration
+  otel_chart_path         = "../../../k8s/helm/charts/otel"
+  otel_collector_role_arn = module.irsa.otel_collector_role_arn
+
+  # Ensure kubernetes module waits for EKS and IRSA to be ready
+  depends_on = [module.eks, module.irsa]
 }
