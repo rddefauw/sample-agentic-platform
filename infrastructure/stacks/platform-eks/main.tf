@@ -17,6 +17,10 @@ terraform {
       source  = "hashicorp/aws"
       version = ">= 5.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.1"
+    }
   }
 }
 
@@ -28,11 +32,22 @@ provider "aws" {
 # Get current AWS account information
 data "aws_caller_identity" "current" {}
 
+# Generate random suffix for unique resource naming
+resource "random_string" "suffix" {
+  length  = 3
+  special = false
+  upper   = false
+}
+
 # Local values for consistent naming
 locals {
   name_prefix = var.name_prefix
-  suffix      = var.suffix
-  common_tags = var.common_tags
+  suffix      = random_string.suffix.result
+  common_tags = {
+    Environment = "dev"
+    ManagedBy   = "Terraform"
+    Project     = "Agentic Platform Sample"
+  }
 }
 
 ########################################################
@@ -54,6 +69,9 @@ module "eks" {
   # KMS encryption - passed in as variables
   enable_kms_encryption = var.enable_kms_encryption
   kms_key_arn          = var.kms_key_arn
+
+  # Enable public access to cluster. 
+  enable_eks_public_access = var.enable_eks_public_access
 
   # Node configuration
   node_instance_types = var.node_instance_types
@@ -183,6 +201,9 @@ module "irsa" {
   
   # Agent specific ARNs
   agent_secret_arns = [module.litellm.agent_secret_arn]
+
+  # Fix chicken and egg problem: EBS CSI addon needs nodes to be ready
+  depends_on = [module.eks]
 }
 
 ########################################################
