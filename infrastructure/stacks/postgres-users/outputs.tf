@@ -10,6 +10,7 @@ output "postgres_users_setup_complete" {
 output "litellm_secret_name" {
   description = "Name of the LiteLLM secret in AWS Secrets Manager"
   value       = local.platform_config.LITELLM_SECRET_NAME
+  sensitive   = true
 }
 
 output "postgres_endpoint" {

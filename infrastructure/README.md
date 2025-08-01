@@ -104,6 +104,53 @@ terraform plan
 terraform apply
 ```
 
+## Step 5: PostgreSQL Users Setup
+
+After the platform stack is deployed, you need to create PostgreSQL users, databases, and permissions using the `postgres-users` stack. This is a **one-time setup**.
+
+### Option A: Running from Local Machine (Port Forwarding Required)
+
+If running from your local machine, you need to port forward through the bastion host:
+
+```bash
+# 1. Get the bastion instance ID
+INSTANCE_ID=$(aws ec2 describe-instances \
+  --filters "Name=tag:Name,Values=*bastion-instance*" "Name=instance-state-name,Values=running" \
+  --query "Reservations[].Instances[].InstanceId" \
+  --output text)
+
+# 2. Start port forwarding session (replace <aurora-writer-endpoint> with actual endpoint)
+aws ssm start-session \
+  --target $INSTANCE_ID \
+  --document-name AWS-StartPortForwardingSessionToRemoteHost \
+  --parameters "portNumber=5432,localPortNumber=5432,host=<aurora-writer-endpoint>"
+
+# 3. In a new terminal, run the postgres-users stack with local proxy enabled
+cd infrastructure/stacks/postgres-users/
+terraform init
+terraform apply -var="use_local_proxy=true"
+```
+
+### Option B: Running from Bastion Host
+
+If running directly from the bastion host, you can execute terraform directly:
+
+```bash
+# SSH into bastion host first, then:
+cd infrastructure/stacks/postgres-users/
+terraform init
+terraform apply  # use_local_proxy defaults to false
+```
+
+### Getting the Aurora Writer Endpoint
+
+You can get the Aurora writer endpoint from the platform-eks stack outputs:
+
+```bash
+cd infrastructure/stacks/platform-eks/
+terraform output postgres_cluster_endpoint
+```
+
 ## Important Security Notes
 
 ### EKS Access Configuration
@@ -125,7 +172,7 @@ The Kubernetes module requires **exactly one** of these configurations:
 ### Public Access Warning
 
 **⚠️ CRITICAL**: Setting `enable_eks_public_access = true` should **ONLY** be used in:
-- Sandbox/development accounts
+- Sandbox accounts
 - Local testing scenarios
 - **NEVER in production environments**
 
