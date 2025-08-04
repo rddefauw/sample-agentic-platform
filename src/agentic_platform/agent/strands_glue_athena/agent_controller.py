@@ -42,11 +42,12 @@ class AgentController:
         # Extract the response text
         response_text = response.get("text", "")
         
+        # Ensure response_text is a string
+        if not isinstance(response_text, str):
+            response_text = str(response_text)
+        
         # Create response message
-        response_message = Message(
-            role="assistant",
-            content=[TextContent(type="text", text=response_text)]
-        )
+        response_message = Message.from_text("assistant", response_text)
         
         # Return the agent response object to the server
         return AgenticResponse(
