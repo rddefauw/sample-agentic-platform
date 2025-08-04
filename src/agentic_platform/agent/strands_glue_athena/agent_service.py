@@ -1,7 +1,7 @@
 """
 Strands agent service for AWS Glue and Athena.
 """
-from strands import Agent, ModelProvider
+from strands import Agent
 from typing import Dict, Any, Optional
 
 from agentic_platform.agent.strands_glue_athena.tools import (
@@ -52,8 +52,7 @@ class StrandsGlueAthenaAgent:
             model_id: The model ID to use for the agent
         """
         self.agent = Agent(
-            model=model_id,
-            provider=ModelProvider.BEDROCK,
+            model=model_id,  # Using model ID directly will use Bedrock by default
             system_prompt=SYSTEM_PROMPT,
             tools=[
                 search_glue_catalog,
