@@ -81,8 +81,19 @@ class StrandsGlueAthenaAgent:
         response = self.agent(message)
         
         # Extract the response content
+        # Ensure we're returning a string for the text field
+        if hasattr(response, "message"):
+            if isinstance(response.message, str):
+                response_text = response.message
+            elif isinstance(response.message, dict) and "content" in response.message:
+                response_text = response.message["content"]
+            else:
+                response_text = str(response.message)
+        else:
+            response_text = str(response)
+        
         return {
-            "text": response.message if hasattr(response, "message") else str(response),
+            "text": response_text,
             "tool_calls": getattr(response, "tool_calls", []),
             "tool_outputs": getattr(response, "tool_outputs", [])
         }
