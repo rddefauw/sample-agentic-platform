@@ -5,7 +5,7 @@ import boto3
 import time
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
-from strands_agents import tool
+from strands import tool
 
 
 class AthenaQueryResult(BaseModel):

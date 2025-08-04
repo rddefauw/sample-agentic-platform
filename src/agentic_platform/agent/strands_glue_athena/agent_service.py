@@ -1,7 +1,7 @@
 """
 Strands agent service for AWS Glue and Athena.
 """
-from strands_agents import Agent
+from strands import Agent
 from typing import Dict, Any, Optional
 
 from agentic_platform.agent.strands_glue_athena.tools import (
