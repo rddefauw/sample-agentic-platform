@@ -5,7 +5,7 @@ import boto3
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 from thefuzz import fuzz, process
-from strands import tool
+from strands_agents import tool
 
 
 class GlueTable(BaseModel):

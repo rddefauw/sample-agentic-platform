@@ -1,7 +1,7 @@
 """
 Strands agent service for AWS Glue and Athena.
 """
-from strands import Agent
+from strands_agents import Agent
 from typing import Dict, Any, Optional
 
 from agentic_platform.agent.strands_glue_athena.tools import (
@@ -77,14 +77,14 @@ class StrandsGlueAthenaAgent:
         Returns:
             A dictionary containing the agent's response
         """
-        # Send the message to the agent
-        response = self.agent.send_message(message)
+        # Call the agent directly with the message
+        response = self.agent(message)
         
         # Extract the response content
         return {
-            "text": response.content,
-            "tool_calls": response.tool_calls,
-            "tool_outputs": response.tool_outputs
+            "text": response.message if hasattr(response, "message") else str(response),
+            "tool_calls": getattr(response, "tool_calls", []),
+            "tool_outputs": getattr(response, "tool_outputs", [])
         }
         
     def stream_message(self, message: str, session_id: Optional[str] = None):
@@ -98,11 +98,12 @@ class StrandsGlueAthenaAgent:
         Returns:
             A generator that yields response chunks
         """
-        # Stream the response from the agent
-        for chunk in self.agent.stream_message(message):
-            yield {
-                "text": chunk.content if hasattr(chunk, "content") else "",
-                "event_type": chunk.type if hasattr(chunk, "type") else "text",
-                "tool_call": chunk.tool_call if hasattr(chunk, "tool_call") else None,
-                "tool_output": chunk.tool_output if hasattr(chunk, "tool_output") else None
-            }
+        # For simplicity, we'll use a non-streaming approach for now
+        # and return the full response as a single chunk
+        response = self.process_message(message, session_id)
+        yield {
+            "text": response["text"],
+            "event_type": "text",
+            "tool_call": None,
+            "tool_output": None
+        }

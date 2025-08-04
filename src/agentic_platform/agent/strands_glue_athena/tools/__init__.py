@@ -1,6 +1,7 @@
 """
 Tools for the Strands Glue/Athena agent.
 """
+# Re-export all tools
 from .glue_tools import (
     search_glue_catalog,
     get_table_details,

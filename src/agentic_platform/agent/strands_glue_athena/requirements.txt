@@ -1,4 +1,5 @@
 strands-agents>=0.2.0
+strands>=0.2.0
 fastapi>=0.115.11
 uvicorn>=0.34.0
 boto3>=1.37.13
