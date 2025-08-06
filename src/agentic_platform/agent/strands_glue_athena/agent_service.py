@@ -2,7 +2,9 @@
 Strands agent service for AWS Glue and Athena.
 """
 from strands import Agent
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Generator
+
+from agentic_platform.core.converter.strands_converters import StrandsStreamingConverter
 
 from agentic_platform.agent.strands_glue_athena.tools import (
     search_glue_catalog,
@@ -98,7 +100,7 @@ class StrandsGlueAthenaAgent:
             "tool_outputs": getattr(response, "tool_outputs", [])
         }
         
-    def stream_message(self, message: str, session_id: Optional[str] = None):
+    def stream_message(self, message: str, session_id: Optional[str] = None) -> Generator[Dict[str, Any], None, None]:
         """
         Stream a response to a user message.
         
@@ -107,14 +109,16 @@ class StrandsGlueAthenaAgent:
             session_id: Optional session ID for conversation continuity
             
         Returns:
-            A generator that yields response chunks
+            A generator that yields response chunks in the standard platform format
         """
-        # For simplicity, we'll use a non-streaming approach for now
-        # and return the full response as a single chunk
-        response = self.process_message(message, session_id)
-        yield {
-            "text": response["text"],
-            "event_type": "text",
-            "tool_call": None,
-            "tool_output": None
-        }
+        # Create a streaming converter for this session
+        converter = StrandsStreamingConverter(session_id=session_id or "")
+        
+        # Stream the message with the Strands agent
+        for chunk in self.agent.stream(message):
+            # Convert the Strands chunk to platform events
+            events = converter.convert_chunks_to_events(chunk)
+            
+            # Yield each event as a separate chunk
+            for event in events:
+                yield event.model_dump()

@@ -34,7 +34,7 @@ class AgentController:
         # Get the latest user text from the request
         user_text = request.latest_user_text
         if not user_text:
-            user_text = "Hello"  # Default fallback
+            raise ValueError("No user text provided in the request")
         
         # Process the message with the agent service
         response = agent_service.process_message(user_text, session_id=request.session_id)
@@ -69,16 +69,11 @@ class AgentController:
         # Get the latest user text from the request
         user_text = request.latest_user_text
         if not user_text:
-            user_text = "Hello"  # Default fallback
+            raise ValueError("No user text provided in the request")
         
         # Stream the message with the agent service
-        for chunk in agent_service.stream_message(user_text, session_id=request.session_id):
-            # Extract the chunk text
-            chunk_text = chunk.get("text", "")
-            
-            if chunk_text:
-                # Create a streaming response chunk
-                yield {
-                    "type": "text",
-                    "data": chunk_text
-                }
+        # The agent service now returns properly converted events
+        # that match the platform's standard format
+        for event in agent_service.stream_message(user_text, session_id=request.session_id):
+            # Pass through the events directly
+            yield event
