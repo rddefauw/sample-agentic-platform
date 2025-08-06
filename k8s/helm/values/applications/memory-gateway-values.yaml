@@ -13,6 +13,15 @@ aws:
   region: ""
   account: ""
 
+# Memory provider configuration
+memoryProvider:
+  type: "postgres"  # Options: "postgres", "bedrock_agentcore"
+  
+  # Bedrock AgentCore Memory specific configuration
+  bedrockAgentCore:
+    region: "us-west-2"
+    memoryId: ""  # Optional: ID of an existing memory resource
+
 image:
   repository: "agentic-platform-memory-gateway"
   tag: latest
@@ -29,6 +38,13 @@ service:
 env:
   - name: PYTHONPATH
     value: /app
+  # The following environment variables will be set by the template based on memoryProvider configuration
+  # - name: MEMORY_PROVIDER
+  #   value: postgres or bedrock_agentcore
+  # - name: AWS_REGION (if using bedrock_agentcore)
+  #   value: region
+  # - name: BEDROCK_AGENTCORE_MEMORY_ID (if using bedrock_agentcore and memoryId is provided)
+  #   value: memoryId
 
 # Resource allocation
 resources:
