@@ -53,4 +53,3 @@ serviceAccount:
 # Provider: bedrock_agentcore or postgres
 configDefaults:
   MEMORY_PROVIDER: "bedrock_agentcore"
-  AWS_REGION: "us-east-1"

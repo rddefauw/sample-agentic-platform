@@ -15,8 +15,10 @@ import os
 class MemoryClient:
     @classmethod
     def _get_provider(cls):
-        # Get the provider from environment variable, default to postgres
-        provider = os.environ.get("MEMORY_PROVIDER", "postgres")
+        # Get the provider from environment variable
+        provider = os.environ.get("MEMORY_PROVIDER")
+        if not provider:
+            raise ValueError("MEMORY_PROVIDER environment variable must be set")
         if provider == "bedrock_agentcore":
             return BedrockAgentCoreMemoryClient
         return PGMemoryClient

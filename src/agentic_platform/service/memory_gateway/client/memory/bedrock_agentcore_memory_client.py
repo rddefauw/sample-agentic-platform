@@ -32,7 +32,7 @@ class BedrockAgentCoreMemoryClient:
     @classmethod
     def _get_client(cls):
         if cls._client is None:
-            region = os.environ.get("AWS_REGION", "us-west-2")
+            region = os.environ.get("AWS_DEFAULT_REGION")
             cls._client = MemoryClient(region_name=region)
         return cls._client
     
@@ -40,6 +40,8 @@ class BedrockAgentCoreMemoryClient:
     def _get_memory_id(cls):
         if cls._memory_id is None:
             # Get memory ID from environment variable
+            # This should be set in the configmap in memory-gateway-values.yaml
+            # or provided during deployment
             cls._memory_id = os.environ.get("BEDROCK_AGENTCORE_MEMORY_ID")
             if not cls._memory_id:
                 # List existing memories and use the first one if available
@@ -88,9 +90,9 @@ class BedrockAgentCoreMemoryClient:
                         conv = payload["Conversational"]
                         role = conv.get("role", "").lower()
                         if role in ["user", "assistant"]:
-                            messages.append(Message(
+                            messages.append(Message.from_text(
                                 role=role,
-                                content=[TextContent(type="text", text=conv.get("content", ""))]
+                                text=conv.get("content", "")
                             ))
             
             # Create a session context from the messages
