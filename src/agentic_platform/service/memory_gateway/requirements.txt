@@ -11,4 +11,4 @@ pgvector
 python-dotenv
 httpx
 bedrock-agentcore
-# openai
+openai
